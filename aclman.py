@@ -24,8 +24,8 @@ logging.info("ACLMAN script started: %s" % script_begin_time)
 
 
 
-# Read in and process the list of sections.
-logging.info("Processing list of sections....")
+# Read in and process the list of sections from the section file.
+logging.info("Processing requested list of sections from section file....")
 
 # TODO: Allow for other section files to be read in.
 s = open("data/sections.csv", "r")
@@ -51,6 +51,34 @@ passman.add_password(None, s3_api['hostname'], s3_api['username'], s3_api['passw
 authhandler = urllib.request.HTTPBasicAuthHandler(passman)
 opener = urllib.request.build_opener(authhandler)
 urllib.request.install_opener(opener)
+
+
+# Find all crosslisted sections.
+all_crosslisted_sections = []
+logging.info("Finding crosslisted sections....")
+for section in all_sections:
+  section_url = s3_api['hostname'] + '/course/courses/' + str(section)
+  section_response = urllib.request.urlopen(section_url).read()
+  section_data = json.loads(section_response.decode('utf-8'))
+  section_crosslists = section_data['crossListedCourses']
+
+  for crosslist in section_crosslists:
+    crosslist_section = Section(crosslist['semesterCode'], crosslist['courseNumber'], crosslist['section'])
+    logging.debug("Found %s (crosslist of %s)" % (crosslist_section, section))
+    all_crosslisted_sections.append(crosslist_section)
+
+# Add all crosslisted sections to the overall list of sections.
+logging.info("Adding crosslisted sections....")
+for crosslist in all_crosslisted_sections:
+  if crosslist in all_sections:
+    logging.debug("Skipping duplicate section %s" % crosslist)
+  else:
+    logging.debug("Added section %s" % crosslist)
+    all_sections.append(crosslist)
+    # TODO: Anything regarding privileges associated with the original section, which will need to be copied.
+
+# Free the list of crosslisted sections since we're done with it.
+del all_crosslisted_sections
 
 
 # Load the rosters for all sections and bring each student's enrollment data
