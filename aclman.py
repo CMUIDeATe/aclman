@@ -31,15 +31,48 @@ logging.info("Processing requested list of sections from section file....")
 s = open("data/sections.csv", "r")
 sreader = csv.reader(s)
 all_sections = []
+all_section_privileges = {}
 for row in sreader:
   # TODO: Be more robust in how this file is read in.
   section = Section(row[0], row[1], row[2])
+
   if section in all_sections:
     logging.debug("Skipping duplicate section %s" % section)
   else:
     all_sections.append(section)
+    # Initialize an empty privileges list for this section.
+    all_section_privileges[section] = []
     logging.debug("Added section %s" % section)
-# TODO: Anything regarding loading in privileges associated with each section.
+
+s.close()
+
+
+# Read in and process the privileges associated with each section from the
+# section file.
+logging.info("Processing associated privileges for %d sections from section file...." % len(all_sections))
+
+# TODO: Allow for other section files to be read in.
+s = open("data/sections.csv", "r")
+sreader = csv.reader(s)
+all_privilege_types = []
+for row in sreader:
+  # TODO: Be more robust in how this file is read in.
+  section = Section(row[0], row[1], row[2])
+  privilege_type = PrivilegeType(row[3], row[4])
+  privilege = Privilege(privilege_type, row[5], row[6], [section])
+
+  # First, register the privilege type if it's new.
+  if privilege_type not in all_privilege_types:
+    logging.debug("Identified new privilege type %s" % privilege_type)
+    all_privilege_types.append(privilege_type)
+  # Then, register the specific privilege.
+  if privilege in all_section_privileges[section]:
+    logging.debug("Skipped duplicate privilege for %s: %s" % (section, privilege))
+  else:
+    all_section_privileges[section].append(privilege)
+    logging.debug("Added privilege for %s: %s" % (section, privilege))
+
+s.close()
 
 
 # Establish auth to S3 API.
@@ -67,15 +100,21 @@ for section in all_sections:
     logging.debug("Found %s (crosslist of %s)" % (crosslist_section, section))
     all_crosslisted_sections.append(crosslist_section)
 
-# Add all crosslisted sections to the overall list of sections.
-logging.info("Adding crosslisted sections....")
+# Add all crosslisted sections to the overall list of sections, and copy their
+# privileges from the original section..
+logging.info("Adding crosslisted sections and their privileges....")
 for crosslist in all_crosslisted_sections:
   if crosslist in all_sections:
     logging.debug("Skipping duplicate section %s" % crosslist)
   else:
     logging.debug("Added section %s" % crosslist)
     all_sections.append(crosslist)
-    # TODO: Anything regarding privileges associated with the original section, which will need to be copied.
+    all_section_privileges[crosslist] = []
+    # Copy the privileges associated with the original section.
+    for privilege in all_section_privileges[section]:
+      new_privilege = privilege.replace_sections([crosslist])
+      all_section_privileges[crosslist].append(new_privilege)
+      logging.debug("Added privilege for %s: %s" % (crosslist, new_privilege))
 
 # Free the list of crosslisted sections since we're done with it.
 del all_crosslisted_sections
@@ -128,6 +167,7 @@ for section in all_sections:
 # Get biographical data for each student, and record their sections alongside.
 logging.info("Getting biographical data for all %d dedup'd students found...." % len(all_bio_urls))
 all_students = {}
+all_student_sections = {}
 
 for bio_url in all_bio_urls:
   # Keep track of this student's enrolled sections.
@@ -144,19 +184,74 @@ for bio_url in all_bio_urls:
   logging.debug("%-8s - %-28s\t%s" % (student.andrewId, student.allNames,
     ','.join(str(x) for x in sections)))
 
-  # Record this student's data and their sections together.
+  # Record this student's data and their sections.
   # TODO: Request explicit API access to student enrollment status, e.g., E1,
   # G2, R3, etc.
-  all_students[student.andrewId] = { 'data': student, 'sections': sections }
+  all_students[student.andrewId] = student
+  all_student_sections[student.andrewId] = sections
 
 # Free the dictionary of BIO URLs since we're done with it.
 del all_bio_urls
 
 
-# Once we have the data for all relevant courses, combine with list of section
-# priviliges TODO the following things:
+# Determine each student's privileges.
+logging.info("Computing privileges for %d students...." % len(all_students))
+all_student_privileges = {}
+coalesced_student_privileges = {}
+
+for andrewId in sorted(all_students.keys()):
+  student = all_students[andrewId]
+  logging.debug("%-8s - %-28s" % (andrewId, student.allNames))
+  all_student_privileges[andrewId] = {}
+
+  for section in all_student_sections[andrewId]:
+    for privilege in all_section_privileges[section]:
+      privilege_type = privilege.privilege_type
+
+      if privilege_type in all_student_privileges[andrewId]:
+        all_student_privileges[andrewId][privilege_type].append(privilege)
+      else:
+        all_student_privileges[andrewId][privilege_type] = [privilege]
+
+  # Coalesce privileges of the same type.
+  # NOTE: This returns a single privilege for each type, with the maximal time
+  # range currently valid, if any; otherwise, the next future range if one
+  # exists; otherwise, one in the recent past.
+  coalesced_student_privileges[andrewId] = []
+  for privilege_type in all_student_privileges[andrewId]:
+    privileges = all_student_privileges[andrewId][privilege_type]
+    try:
+      while len(privileges) > 1:
+        a = privileges.pop()
+        b = privileges.pop()
+        p = a.coalesce(b)
+        privileges.append(p)
+      # Extend the list of coalesced privileges with the resulting
+      # single-element list.
+      coalesced_student_privileges[andrewId].extend(privileges)
+    except ValueError:
+      logging.warning("ValueError when attempting to coalesce privileges %s and %s" % (a, b))
+      # If for some reason we tried to coalesce unlike privileges, just find
+      # any one that is current.
+      for privilege in privileges:
+        if privilege.is_current():
+          coalesced_student_privileges[andrewId].append(privilege)
+          logging.warning("  Used %s as the coalesced representative for %s, because it is current" % (privilege, privilege_type))
+          break
+      # If none are current, take the first.
+      coalesced_student_privileges[andrewId].append(privileges[0])
+      logging.warning("  Used %s as the coalesced representative for %s, since none were current" % (privileges[0], privilege_type))
+
+  for privilege in coalesced_student_privileges[andrewId]:
+    logging.debug("  %s" % privilege)
+
+
+# Once we have calculated the set of privileges for each student, we need TODO
+# the following things:
 #   1. Generate XML file for door/keycard ACL management, upload via SFTP with
 #      SSH keys to the CSGold Util server.
+#        - NOTE: Enrollment data is NOT nominaly needed here, as card expiry
+#          will override when necessary.
 #        - TODO: Improve existing codebase to use actual diffs for both add and
 #          drop.
 #        - TODO: Before uploading new ACL file, compare with previous and log
@@ -165,15 +260,28 @@ del all_bio_urls
 #   2. Populate Grouper groups for inclusion in determination of laser cutter
 #      access privileges.  (Most users must also appear in EH&S groups
 #      indicating completion of Fire Extinguisher Use Training.)
+#        - NOTE: Enrollment data is NOT nominaly needed here, as account expiry
+#          will override when necessary.
 #   3. Generate access lists for room reservation privileges in MRBS; update
 #      via direct entries into the MySQL database.
+#        - NOTE: Enrollment data is NOT nominaly needed here, as this privilege
+#          is only granted for the current semester for HL A10A only.
 #   4. Compare with a dump of existing user lists from Zoho/Quartermaster for
 #      Lending Desk privileges, determine diffs, and output them to a place
 #      where they can be manually processed in Zoho.  (Zoho cannot pull
 #      external data.)
+#        - NOTE: Enrollment data is REQUIRED to do this properly, since
+#          permissions persist even after a student is no longer
+#          contemporaneously enrolled in the course which conferred this
+#          privilege.
 #   5. TODO: Optionally populate WordPress instances with users tied to
 #      rosters. (This is not presently handled by the existing suite of
 #      semi-manual scripts.)
+
+
+# In the meantime, as an intermediate output, create stripped-down CSV roster
+# files:
+# TODO: Do this.
 
 
 # Epilogue.
