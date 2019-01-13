@@ -8,6 +8,7 @@ import urllib.request
 import urllib.parse
 
 from models import *
+import helpers
 import config.secrets as secrets
 
 
@@ -20,6 +21,7 @@ log_file = "%s.log" % run_date
 logging.basicConfig(filename=log_dir + '/' + log_file, format='%(asctime)s.%(msecs)03d:%(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=logging.DEBUG)
 subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
 
+helpers.mkdir_p("output")
 logging.info("ACLMAN script started: %s" % script_begin_time)
 
 
@@ -281,7 +283,31 @@ for andrewId in sorted(all_students.keys()):
 
 # In the meantime, as an intermediate output, create stripped-down CSV roster
 # files:
-# TODO: Do this.
+roster_dir = "output/rosters"
+roster_file = "rosters-%s.csv" % run_date
+roster_path = roster_dir + '/' + roster_file
+helpers.mkdir_p(roster_dir)
+logging.info("Generating CSV roster at `%s`...." % roster_path)
+
+with open(roster_path, 'w') as csvfile:
+  fieldnames = ['SEMESTER ID','COURSE ID','SECTION ID','ANDREW ID','MC LAST NAME','MC FIRST NAME']
+  writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+  writer.writeheader()
+
+  for andrewId in sorted(all_student_sections.keys()):
+    for section in all_student_sections[andrewId]:
+      row = {
+        'SEMESTER ID': section.semester,
+        'COURSE ID': section.course,
+        'SECTION ID': section.section,
+        'ANDREW ID': andrewId,
+        'MC LAST NAME': all_students[andrewId].lastName,
+        'MC FIRST NAME': all_students[andrewId].commonName
+      }
+      writer.writerow(row)
+
+csvfile.close()
+subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
 
 
 # Epilogue.
