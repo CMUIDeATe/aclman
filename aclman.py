@@ -4,6 +4,8 @@ import datetime
 import logging
 import subprocess
 import csv, json
+import xml.etree.ElementTree as ET
+import xml.dom.minidom
 import urllib.request
 import urllib.parse
 
@@ -248,8 +250,12 @@ for andrewId in sorted(all_students.keys()):
     logging.debug("  %s" % privilege)
 
 
-# Once we have calculated the set of privileges for each student, we need TODO
-# the following things:
+
+# Now that we have calculated the set of privileges for each student, generate
+# various outputs.
+
+
+
 #   1. Generate XML file for door/keycard ACL management, upload via SFTP with
 #      SSH keys to the CSGold Util server.
 #        - NOTE: Enrollment data is NOT nominaly needed here, as card expiry
@@ -259,6 +265,50 @@ for andrewId in sorted(all_students.keys()):
 #        - TODO: Before uploading new ACL file, compare with previous and log
 #          diffs.  This will make the reasons for drops easier to determine
 #          empirically.
+keycard_dir = "output/keycard"
+keycard_file = "keycard-%s.xml" % run_date
+keycard_path = keycard_dir + '/' + keycard_file
+helpers.mkdir_p(keycard_dir)
+logging.info("Generating XML file for CSGold door/keycard ACLs at `%s`...." % keycard_path)
+
+# TODO: Store this mapping in a configuration file.
+csgold_group_mapping = {
+  'HL A10A': '789',
+  'HL A10': '790',
+  'HL A5': '791'
+}
+
+# Create the root elements of the XML file.
+keycard_xml_root = ET.Element('AccessAssignments')
+keycard_comment = ET.Comment('Generated as \'%s\' by ACLMAN at %s' % (keycard_file, datetime.datetime.now()))
+keycard_xml_root.append(keycard_comment)
+
+# Generate the elements for each access privilege.
+for andrewId in sorted(coalesced_student_privileges.keys()):
+  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "door_access"]:
+    priv_asgn = ET.SubElement(keycard_xml_root, 'AccessAssignment')
+
+    priv_asgn_andrewid = ET.SubElement(priv_asgn, 'AndrewID')
+    priv_asgn_group = ET.SubElement(priv_asgn, 'GroupNumber')
+    priv_asgn_start = ET.SubElement(priv_asgn, 'StartDate')
+    priv_asgn_end = ET.SubElement(priv_asgn, 'EndDate')
+    priv_asgn_comment = ET.SubElement(priv_asgn, 'Comment')
+
+    priv_asgn_andrewid.text = andrewId
+    priv_asgn_group.text = csgold_group_mapping[privilege.value]
+    priv_asgn_start.text = str(privilege.start)
+    priv_asgn_end.text = str(privilege.end)
+    priv_asgn_comment.text = "ACLMAN: %s" % ','.join([str(x) for x in privilege.sections])
+
+# Write out the file.
+with open(keycard_path, 'w') as xmlfile:
+  xmldata = xml.dom.minidom.parseString(ET.tostring(keycard_xml_root))
+  xmlfile.write(xmldata.toprettyxml(indent="  "))
+xmlfile.close()
+subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
+
+
+# We also need TODO the following things:
 #   2. Populate Grouper groups for inclusion in determination of laser cutter
 #      access privileges.  (Most users must also appear in EH&S groups
 #      indicating completion of Fire Extinguisher Use Training.)

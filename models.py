@@ -46,6 +46,8 @@ class Privilege:
   def __init__(self, privilege_type, start, end, sections):
     t = datetime.datetime.now()
     self.privilege_type = privilege_type
+    self.key = self.privilege_type.key
+    self.value = self.privilege_type.value
     if start and start != "None":
       self.start = datetime.datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
       self.actual_start = self.start
