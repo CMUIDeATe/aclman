@@ -158,9 +158,9 @@ for section in all_sections:
   # TODO: Need to do error-checking on HTTP status.
   enrollment_count = len(section_roster)
   if enrollment_count == 0:
-    logging.warning("%s: NO STUDENTS ARE ENROLLED!" % section)
+    logging.warning("%-12s: NO STUDENTS ARE ENROLLED!" % section)
   else:
-    logging.info("%s: %2d enrolled" % (section, enrollment_count))
+    logging.debug("%-12s: %2d enrolled" % (section, enrollment_count))
 
   for enrollment in section_roster:
     # The student BIO URL is a fully-qualified URL.
@@ -304,7 +304,7 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     priv_asgn_group.text = csgold_group_mapping[privilege.value]
     priv_asgn_start.text = str(privilege.start)
     priv_asgn_end.text = str(privilege.end)
-    priv_asgn_comment.text = "ACLMAN: %s" % ','.join([str(x) for x in privilege.sections])
+    priv_asgn_comment.text = "ACLMAN-%s: %s" % (run_date, ','.join([str(x) for x in privilege.sections]))
 
 # Write out the file.
 with open(keycard_path, 'w') as xmlfile:
