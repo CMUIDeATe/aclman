@@ -307,6 +307,25 @@ with open(keycard_path, 'w') as xmlfile:
 xmlfile.close()
 subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
 
+# Upload the file via SFTP to the CSGold Util server.
+# NOTE: In Python 3.5, the need for an SFTP batchfile should be avoided by
+# reading input from stdin, e.g.,
+#   subprocess.run(["sftp", "-b", "-", ...], ..., input=...)
+# as opposed to `subprocess.call(...)`.
+# See https://docs.python.org/3/library/subprocess.html#subprocess.run
+logging.info("Uploading XML file for door/keycard ACLs to CSGold Util server....")
+batchfile_path = '/tmp/aclman-sftp-batchfile'
+with open(batchfile_path, 'w') as batchfile:
+  batchfile.write("put %s Drop/" % keycard_path)
+batchfile.close()
+
+# Suppress verbose SFTP output with the `stdout=subprocess.DEVNULL` option.
+# Errors will still print to stderr.
+subprocess.call(["sftp", "-b", batchfile_path, "-i", secrets.csgold_util['ssh_key_path'],
+  "%s@%s" % (secrets.csgold_util['username'], secrets.csgold_util['fqdn'])],
+  stdout=subprocess.DEVNULL)
+
+
 
 # We also need TODO the following things:
 #   2. Populate Grouper groups for inclusion in determination of laser cutter

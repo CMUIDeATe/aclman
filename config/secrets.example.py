@@ -4,3 +4,10 @@ s3_api = {
   'username': 'S3_API_USERNAME',
   'password': 'S3_API_PASSWORD'
 }
+
+# CSGold Util server credentials
+csgold_util = {
+  'fqdn': 'example.org',
+  'username': 'CSGOLD_UTIL_USERNAME',
+  'ssh_key_path': '/path/to/csgold_util_ssh_key'
+}
