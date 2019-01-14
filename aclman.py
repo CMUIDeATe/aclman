@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import sys
 import subprocess
 import csv, json
 import xml.etree.ElementTree as ET
@@ -92,10 +93,15 @@ urllib.request.install_opener(opener)
 
 # Find all crosslisted sections.
 all_crosslisted_sections = []
-logging.info("Finding crosslisted sections....")
+logging.info("Finding crosslists of the specified sections....")
 for section in all_sections:
   section_url = s3_api['hostname'] + '/course/courses/' + str(section)
-  section_response = urllib.request.urlopen(section_url).read()
+  try:
+    section_response = urllib.request.urlopen(section_url).read()
+  except urllib.error.HTTPError:
+    sys.stderr.write("Couldn't find crosslists: SECTION %s DOESN'T EXIST!\n" % section)
+    logging.error("Couldn't find crosslists: SECTION %s DOESN'T EXIST!" % section)
+    continue
   section_data = json.loads(section_response.decode('utf-8'))
   section_crosslists = section_data['crossListedCourses']
 
@@ -118,7 +124,7 @@ for crosslist in all_crosslisted_sections:
     for privilege in all_section_privileges[section]:
       new_privilege = privilege.replace_sections([crosslist])
       all_section_privileges[crosslist].append(new_privilege)
-      logging.debug("Added privilege for %s: %s" % (crosslist, new_privilege))
+      logging.debug("Copied privilege for %s from %s: %s" % (crosslist, section, new_privilege))
 
 # Free the list of crosslisted sections since we're done with it.
 del all_crosslisted_sections
