@@ -18,6 +18,9 @@ import config.secrets as secrets
 # Prologue.
 script_begin_time = datetime.datetime.now()
 
+# TODO: Specify dry-run or production status from command-line arg; append
+# `-dryrun` to `run_date` when appropriate.  Switch out dev/prod instances in
+# config accordingly.
 run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
 log_dir = "log"
 log_file = "%s.log" % run_date
@@ -39,11 +42,15 @@ all_sections = []
 all_section_privileges = {}
 for row in sreader:
   # TODO: Be more robust in how this file is read in.
+  # TODO: Allow for comments in the section file.
   section = Section(row[0], row[1], row[2])
 
   if section in all_sections:
     logging.debug("Skipping duplicate section %s" % section)
   else:
+    # TODO: Verify that the section actually exists by calling
+    # `/course/courses?semester=...&courseNumber=...&section=...`
+    # NOTE: For now, we catch this later when we try to look up its crosslists.
     all_sections.append(section)
     # Initialize an empty privileges list for this section.
     all_section_privileges[section] = []
@@ -62,6 +69,7 @@ sreader = csv.reader(s)
 all_privilege_types = []
 for row in sreader:
   # TODO: Be more robust in how this file is read in.
+  # TODO: Allow for comments in the section file.
   section = Section(row[0], row[1], row[2])
   privilege_type = PrivilegeType(row[3], row[4])
   privilege = Privilege(privilege_type, row[5], row[6], [section])
@@ -101,6 +109,8 @@ for section in all_sections:
   except urllib.error.HTTPError:
     sys.stderr.write("Couldn't find crosslists: SECTION %s DOESN'T EXIST!\n" % section)
     logging.error("Couldn't find crosslists: SECTION %s DOESN'T EXIST!" % section)
+    # TODO: Also mark `section` as not existing and remove it from the list of
+    # sections, in order to avoid making further calls against it.
     continue
   section_data = json.loads(section_response.decode('utf-8'))
   section_crosslists = section_data['crossListedCourses']
@@ -111,10 +121,13 @@ for section in all_sections:
     all_crosslisted_sections.append(crosslist_section)
 
 # Add all crosslisted sections to the overall list of sections, and copy their
-# privileges from the original section..
+# privileges from the original section.
 logging.info("Adding crosslisted sections and their privileges....")
 for crosslist in all_crosslisted_sections:
   if crosslist in all_sections:
+    # If the section already exists, just skip it.  Don't copy the privileges,
+    # as others might be explicitly defined, e.g., different privileges for
+    # graduate and undergraduate sections.
     logging.debug("Skipping duplicate section %s" % crosslist)
   else:
     logging.debug("Added section %s" % crosslist)
@@ -150,12 +163,13 @@ for section in all_sections:
     'section': section.section
   }
 
+  # NOTE: Sections which do not exist will still return HTTP 200 with an empty
+  # `students` element here.
   section_url = endpoint + '?' + urllib.parse.urlencode(parameters)
   section_response = urllib.request.urlopen(section_url).read()
   section_data = json.loads(section_response.decode('utf-8'))
   section_roster = section_data['students']
 
-  # TODO: Need to do error-checking on HTTP status.
   enrollment_count = len(section_roster)
   if enrollment_count == 0:
     logging.warning("%-12s: NO STUDENTS ARE ENROLLED!" % section)
@@ -265,12 +279,8 @@ for andrewId in sorted(all_students.keys()):
 #   1. Generate XML file for door/keycard ACL management, upload via SFTP with
 #      SSH keys to the CSGold Util server.
 #        - NOTE: Enrollment data is NOT nominaly needed here, as card expiry
-#          will override when necessary.
-#        - TODO: Improve existing codebase to use actual diffs for both add and
-#          drop.
-#        - TODO: Before uploading new ACL file, compare with previous and log
-#          diffs.  This will make the reasons for drops easier to determine
-#          empirically.
+#          will override when necessary, but it will help reduce file size and
+#          group size.
 keycard_dir = "output/keycard"
 keycard_file = "keycard-%s.xml" % run_date
 keycard_path = keycard_dir + '/' + keycard_file
@@ -292,6 +302,23 @@ keycard_xml_root.append(keycard_comment)
 # Generate the elements for each access privilege.
 for andrewId in sorted(coalesced_student_privileges.keys()):
   for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "door_access"]:
+    # NOTE: This process will even add old, expired privileges to the file.
+    # When they're re-uploaded, such records will live in the patron group for
+    # a few hours afterwards before being deleted as expired by the CSGold
+    # server.  We can avoid such churn by first checking against a copy of
+    # what's already on the server and not adding privileges which are both old
+    # and already dropped from the server.  (If, on the contrary, we calculate
+    # a privilege as old here, but it is current on the server, we do want to
+    # re-upload it, as that's likely been caused by a drop.)
+    # TODO: Request access to such a feature, and/or track the server state to
+    # calculate diffs.  This would also have the added benefit that we could
+    # avoid re-uploading ANY privilege which hasn't changed.
+    #
+    # NOTE: Don't be too aggressive about cleaning out the patron groups until
+    # it has been determined how many legacy users currently retain ad hoc
+    # privileges in those patron groups, and those have either been ended (if
+    # they're no longer needed) or special-cased in other ways, so they won't
+    # be overwritten.
     priv_asgn = ET.SubElement(keycard_xml_root, 'AccessAssignment')
 
     priv_asgn_andrewid = ET.SubElement(priv_asgn, 'AndrewID')
@@ -330,6 +357,10 @@ batchfile.close()
 subprocess.call(["sftp", "-b", batchfile_path, "-i", secrets.csgold_util['ssh_key_path'],
   "%s@%s" % (secrets.csgold_util['username'], secrets.csgold_util['fqdn'])],
   stdout=subprocess.DEVNULL)
+
+# TODO: Compare the just-generated ACL file with the previous version and log
+# the diffs locally.  This will make the reasons for drops easier to determine
+# empirically.
 
 
 
