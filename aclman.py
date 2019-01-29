@@ -99,9 +99,10 @@ opener = urllib.request.build_opener(authhandler)
 urllib.request.install_opener(opener)
 
 
-# Find all crosslisted sections.
+# Find all crosslisted sections, and copy the associated privileges where
+# appropriate.
 all_crosslisted_sections = []
-logging.info("Finding crosslists of the specified sections....")
+logging.info("Finding crosslists of the specified sections and copying privileges....")
 for section in all_sections:
   section_url = s3_api['hostname'] + '/course/courses/' + str(section)
   try:
@@ -117,29 +118,25 @@ for section in all_sections:
 
   for crosslist in section_crosslists:
     crosslist_section = Section(crosslist['semesterCode'], crosslist['courseNumber'], crosslist['section'])
-    logging.debug("Found %s (crosslist of %s)" % (crosslist_section, section))
-    all_crosslisted_sections.append(crosslist_section)
 
-# Add all crosslisted sections to the overall list of sections, and copy their
-# privileges from the original section.
-logging.info("Adding crosslisted sections and their privileges....")
-for crosslist in all_crosslisted_sections:
-  if crosslist in all_sections:
-    # If the section already exists, just skip it.  Don't copy the privileges,
-    # as others might be explicitly defined, e.g., different privileges for
-    # graduate and undergraduate sections.
-    logging.debug("Skipping duplicate section %s" % crosslist)
-  else:
-    logging.debug("Added section %s" % crosslist)
-    all_sections.append(crosslist)
-    all_section_privileges[crosslist] = []
-    # Copy the privileges associated with the original section.
-    for privilege in all_section_privileges[section]:
-      new_privilege = privilege.replace_sections([crosslist])
-      all_section_privileges[crosslist].append(new_privilege)
-      logging.debug("Copied privilege for %s from %s: %s" % (crosslist, section, new_privilege))
+    if crosslist_section in all_sections:
+      # If the section already exists, just skip it.  Don't copy the privileges,
+      # as others might be explicitly defined, e.g., different privileges for
+      # graduate and undergraduate sections.
+      logging.debug("Found %s (crosslist of %s); skipping, already defined" % (crosslist_section, section))
+    else:
+      logging.debug("Found %s (crosslist of %s); adding new section" % (crosslist_section, section))
+      all_crosslisted_sections.append(crosslist_section)
+      all_section_privileges[crosslist_section] = []
+      # Copy the privileges associated with the original section.
+      for privilege in all_section_privileges[section]:
+        new_privilege = privilege.replace_sections([crosslist_section])
+        all_section_privileges[crosslist_section].append(new_privilege)
+        logging.debug("  Copied privilege: %s" % new_privilege)
 
-# Free the list of crosslisted sections since we're done with it.
+# Add all crosslisted sections to the overall list of sections, then free the
+# list of crosslisted sections since we're done with it.
+all_sections.extend(all_crosslisted_sections)
 del all_crosslisted_sections
 
 
