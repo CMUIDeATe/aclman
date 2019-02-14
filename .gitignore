@@ -1,5 +1,6 @@
 __pycache__
 log
 output
+*.swp
 
 config/secrets.py
