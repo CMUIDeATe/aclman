@@ -12,16 +12,24 @@ import urllib.parse
 
 from aclman.models import *
 import aclman.helpers as helpers
-import aclman.config.secrets as secrets
+
+from aclman.cli import CliParser
 
 
 # Prologue.
 script_begin_time = datetime.datetime.now()
 
-# TODO: Specify dry-run or production status from command-line arg; append
-# `-dryrun` to `run_date` when appropriate.  Switch out dev/prod instances in
-# config accordingly.
-run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
+cli = CliParser('ACLMAN')
+cli.option('--live', dest='live', action='store_true', default=False, help="run ACLMAN live on production systems")
+args = cli.parse()
+
+if args.live:
+  import aclman.secrets.production as secrets
+  run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
+else:
+  import aclman.secrets.development as secrets
+  run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S-dryrun")
+
 log_dir = "log"
 log_file = "%s.log" % run_date
 logging.basicConfig(filename=log_dir + '/' + log_file, format='%(asctime)s.%(msecs)03d:%(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=logging.DEBUG)

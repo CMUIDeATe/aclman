@@ -10,17 +10,22 @@ at [Carnegie Mellon University](https://www.cmu.edu/).
 
 ## Configuration
 
-Copy the example configuration and place API endpoints, keys, etc., in `aclman/config/secrets.py`:
+Copy the example configuration and place API endpoints, keys, etc., in
+`aclman/secrets/{development,production}.py` as appropriate:
 
 ```
-cp aclman/config/secrets{.example,}.py
-edit aclman/config/secrets.py
+cp aclman/secrets/example.py aclman/secrets/development.py
+cp aclman/secrets/example.py aclman/secrets/production.py
+edit aclman/secrets/{development,production}.py
 ```
 
 ## Usage
 
-From the project root directory:
+From the project root directory, to conduct a dry-run in development
+environments:
 
 ```
 python3 -m aclman.aclman
 ```
+
+Add `--live` to run in production.
