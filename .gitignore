@@ -1,6 +1,7 @@
 __pycache__
 log
 output
+*.pyc
 *.swp
 
-config/secrets.py
+aclman/config/secrets.py

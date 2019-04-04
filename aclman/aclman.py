@@ -10,9 +10,9 @@ import xml.dom.minidom
 import urllib.request
 import urllib.parse
 
-from models import *
-import helpers
-import config.secrets as secrets
+from aclman.models import *
+import aclman.helpers as helpers
+import aclman.config.secrets as secrets
 
 
 # Prologue.

@@ -10,15 +10,17 @@ at [Carnegie Mellon University](https://www.cmu.edu/).
 
 ## Configuration
 
-Copy the example configuration and place API endpoints, keys, etc., in `config/secrets.py`:
+Copy the example configuration and place API endpoints, keys, etc., in `aclman/config/secrets.py`:
 
 ```
-cp config/secrets.example.py config/secrets.py
-edit config/secrets.py
+cp aclman/config/secrets{.example,}.py
+edit aclman/config/secrets.py
 ```
 
 ## Usage
 
+From the project root directory:
+
 ```
-./aclman.py
+python3 -m aclman.aclman
 ```
