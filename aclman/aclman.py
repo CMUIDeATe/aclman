@@ -33,16 +33,30 @@ else:
 
 log_dir = "log"
 log_file = "%s.log" % run_date
-logging.basicConfig(filename=log_dir + '/' + log_file, format='%(asctime)s.%(msecs)03d:%(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=logging.DEBUG)
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+# Set up file-based DEBUG logger.
+file_log_handler = logging.FileHandler(log_dir + '/' + log_file)
+file_log_handler.setFormatter(logging.Formatter('%(asctime)s.%(msecs)03d:%(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+file_log_handler.setLevel(logging.DEBUG)
+logger.addHandler(file_log_handler)
+# If not running in production, also log INFO to the console.
+if not args.live:
+  console_log_handler = logging.StreamHandler(sys.stdout)
+  console_log_handler.setFormatter(logging.Formatter('%(message)s'))
+  console_log_handler.setLevel(logging.INFO)
+  logger.addHandler(console_log_handler)
+
 subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
 
 helpers.mkdir_p("output")
-logging.info("ACLMAN script started: %s" % script_begin_time)
+logger.info("ACLMAN script started: %s" % script_begin_time)
 
 
 
 # Read in and process the list of sections from the section file.
-logging.info("Processing requested list of sections from section file `%s`...." % args.sectionfile)
+logger.info("Processing requested list of sections from section file `%s`...." % args.sectionfile)
 
 s = open(args.sectionfile, "r")
 sreader = csv.reader(s)
@@ -54,7 +68,7 @@ for row in sreader:
   section = Section(row[0], row[1], row[2])
 
   if section in all_sections:
-    logging.debug("Skipping duplicate section %s" % section)
+    logger.debug("Skipping duplicate section %s" % section)
   else:
     # TODO: Verify that the section actually exists by calling
     # `/course/courses?semester=...&courseNumber=...&section=...`
@@ -62,14 +76,14 @@ for row in sreader:
     all_sections.append(section)
     # Initialize an empty privileges list for this section.
     all_section_privileges[section] = []
-    logging.debug("Added section %s" % section)
+    logger.debug("Added section %s" % section)
 
 s.close()
 
 
 # Read in and process the privileges associated with each section from the
 # section file.
-logging.info("Processing associated privileges for %d sections from section file `%s`...." % (len(all_sections), args.sectionfile))
+logger.info("Processing associated privileges for %d sections from section file `%s`...." % (len(all_sections), args.sectionfile))
 
 s = open(args.sectionfile, "r")
 sreader = csv.reader(s)
@@ -83,14 +97,14 @@ for row in sreader:
 
   # First, register the privilege type if it's new.
   if privilege_type not in all_privilege_types:
-    logging.debug("Identified new privilege type %s" % privilege_type)
+    logger.debug("Identified new privilege type %s" % privilege_type)
     all_privilege_types.append(privilege_type)
   # Then, register the specific privilege.
   if privilege in all_section_privileges[section]:
-    logging.debug("Skipped duplicate privilege for %s: %s" % (section, privilege))
+    logger.debug("Skipped duplicate privilege for %s: %s" % (section, privilege))
   else:
     all_section_privileges[section].append(privilege)
-    logging.debug("Added privilege for %s: %s" % (section, privilege))
+    logger.debug("Added privilege for %s: %s" % (section, privilege))
 
 s.close()
 
@@ -109,14 +123,14 @@ urllib.request.install_opener(opener)
 # Find all crosslisted sections, and copy the associated privileges where
 # appropriate.
 all_crosslisted_sections = []
-logging.info("Finding crosslists of the specified sections and copying privileges....")
+logger.info("Finding crosslists of the specified sections and copying privileges....")
 for section in all_sections:
   section_url = s3_api['hostname'] + '/course/courses/' + str(section)
   try:
     section_response = urllib.request.urlopen(section_url).read()
   except urllib.error.HTTPError:
     sys.stderr.write("Couldn't find crosslists: SECTION %s DOESN'T EXIST!\n" % section)
-    logging.error("Couldn't find crosslists: SECTION %s DOESN'T EXIST!" % section)
+    logger.error("Couldn't find crosslists: SECTION %s DOESN'T EXIST!" % section)
     # TODO: Also mark `section` as not existing and remove it from the list of
     # sections, in order to avoid making further calls against it.
     continue
@@ -130,16 +144,16 @@ for section in all_sections:
       # If the section already exists, just skip it.  Don't copy the privileges,
       # as others might be explicitly defined, e.g., different privileges for
       # graduate and undergraduate sections.
-      logging.debug("Found %s (crosslist of %s); skipping, already defined" % (crosslist_section, section))
+      logger.debug("Found %s (crosslist of %s); skipping, already defined" % (crosslist_section, section))
     else:
-      logging.debug("Found %s (crosslist of %s); adding new section" % (crosslist_section, section))
+      logger.debug("Found %s (crosslist of %s); adding new section" % (crosslist_section, section))
       all_crosslisted_sections.append(crosslist_section)
       all_section_privileges[crosslist_section] = []
       # Copy the privileges associated with the original section.
       for privilege in all_section_privileges[section]:
         new_privilege = privilege.replace_sections([crosslist_section])
         all_section_privileges[crosslist_section].append(new_privilege)
-        logging.debug("  Copied privilege: %s" % new_privilege)
+        logger.debug("  Copied privilege: %s" % new_privilege)
 
 # Add all crosslisted sections to the overall list of sections, then free the
 # list of crosslisted sections since we're done with it.
@@ -155,7 +169,7 @@ del all_crosslisted_sections
 # data on the students themselves requires a separate API call, which we
 # minimize here by coalescing records with the same student BIO URL before
 # moving on.
-logging.info("Processing rosters for each section....")
+logger.info("Processing rosters for each section....")
 all_bio_urls = {}
 enrollments_by_bio_url = {}
 
@@ -176,9 +190,9 @@ for section in all_sections:
 
   enrollment_count = len(section_roster)
   if enrollment_count == 0:
-    logging.warning("%-12s: NO STUDENTS ARE ENROLLED!" % section)
+    logger.warning("%-12s: NO STUDENTS ARE ENROLLED!" % section)
   else:
-    logging.debug("%-12s: %2d enrolled" % (section, enrollment_count))
+    logger.debug("%-12s: %2d enrolled" % (section, enrollment_count))
 
   for enrollment in section_roster:
     # The student BIO URL is a fully-qualified URL.
@@ -193,7 +207,7 @@ for section in all_sections:
 
 
 # Get biographical data for each student, and record their sections alongside.
-logging.info("Getting biographical data for all %d dedup'd students found...." % len(all_bio_urls))
+logger.info("Getting biographical data for all %d dedup'd students found...." % len(all_bio_urls))
 all_students = {}
 all_student_sections = {}
 
@@ -209,7 +223,7 @@ for bio_url in all_bio_urls:
   # TODO: Need to do error-checking on HTTP status.
   student = Student(student_data, bio_url)
 
-  logging.debug("%-8s - %-28s\t%s" % (student.andrewId, student.allNames,
+  logger.debug("%-8s - %-28s\t%s" % (student.andrewId, student.allNames,
     ','.join(str(x) for x in sections)))
 
   # Record this student's data and their sections.
@@ -223,13 +237,13 @@ del all_bio_urls
 
 
 # Determine each student's privileges.
-logging.info("Computing privileges for %d students...." % len(all_students))
+logger.info("Computing privileges for %d students...." % len(all_students))
 all_student_privileges = {}
 coalesced_student_privileges = {}
 
 for andrewId in sorted(all_students.keys()):
   student = all_students[andrewId]
-  logging.debug("%-8s - %-28s" % (andrewId, student.allNames))
+  logger.debug("%-8s - %-28s" % (andrewId, student.allNames))
   all_student_privileges[andrewId] = {}
 
   for section in all_student_sections[andrewId]:
@@ -258,20 +272,20 @@ for andrewId in sorted(all_students.keys()):
       # single-element list.
       coalesced_student_privileges[andrewId].extend(privileges)
     except ValueError:
-      logging.warning("ValueError when attempting to coalesce privileges %s and %s" % (a, b))
+      logger.warning("ValueError when attempting to coalesce privileges %s and %s" % (a, b))
       # If for some reason we tried to coalesce unlike privileges, just find
       # any one that is current.
       for privilege in privileges:
         if privilege.is_current():
           coalesced_student_privileges[andrewId].append(privilege)
-          logging.warning("  Used %s as the coalesced representative for %s, because it is current" % (privilege, privilege_type))
+          logger.warning("  Used %s as the coalesced representative for %s, because it is current" % (privilege, privilege_type))
           break
       # If none are current, take the first.
       coalesced_student_privileges[andrewId].append(privileges[0])
-      logging.warning("  Used %s as the coalesced representative for %s, since none were current" % (privileges[0], privilege_type))
+      logger.warning("  Used %s as the coalesced representative for %s, since none were current" % (privileges[0], privilege_type))
 
   for privilege in coalesced_student_privileges[andrewId]:
-    logging.debug("  %s" % privilege)
+    logger.debug("  %s" % privilege)
 
 
 
@@ -289,7 +303,7 @@ keycard_dir = "output/keycard"
 keycard_file = "keycard-%s.xml" % run_date
 keycard_path = keycard_dir + '/' + keycard_file
 helpers.mkdir_p(keycard_dir)
-logging.info("Generating XML file for CSGold door/keycard ACLs at `%s`...." % keycard_path)
+logger.info("Generating XML file for CSGold door/keycard ACLs at `%s`...." % keycard_path)
 
 # TODO: Store this mapping in a configuration file.
 csgold_group_mapping = {
@@ -350,7 +364,7 @@ subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
 #   subprocess.run(["sftp", "-b", "-", ...], ..., input=...)
 # as opposed to `subprocess.call(...)`.
 # See https://docs.python.org/3/library/subprocess.html#subprocess.run
-logging.info("Uploading XML file for door/keycard ACLs to CSGold Util server....")
+logger.info("Uploading XML file for door/keycard ACLs to CSGold Util server....")
 batchfile_path = '/tmp/aclman-sftp-batchfile'
 with open(batchfile_path, 'w') as batchfile:
   batchfile.write("put %s Drop/" % keycard_path)
@@ -397,7 +411,7 @@ roster_dir = "output/rosters"
 roster_file = "rosters-%s.csv" % run_date
 roster_path = roster_dir + '/' + roster_file
 helpers.mkdir_p(roster_dir)
-logging.info("Generating CSV roster at `%s`...." % roster_path)
+logger.info("Generating CSV roster at `%s`...." % roster_path)
 
 with open(roster_path, 'w') as csvfile:
   fieldnames = ['SEMESTER ID','COURSE ID','SECTION ID','ANDREW ID','MC LAST NAME','MC FIRST NAME']
@@ -422,8 +436,8 @@ subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
 
 # Epilogue.
 script_end_time = datetime.datetime.now()
-logging.info("Done.")
+logger.info("Done.")
 script_elapsed = (script_end_time - script_begin_time).total_seconds()
-logging.info("  Finished: %s" % script_end_time)
-logging.info("   Started: %s" % script_begin_time)
-logging.info("   Elapsed: %26.6f sec" % script_elapsed)
+logger.info("  Finished: %s" % script_end_time)
+logger.info("   Started: %s" % script_begin_time)
+logger.info("   Elapsed: %26.6f sec" % script_elapsed)
