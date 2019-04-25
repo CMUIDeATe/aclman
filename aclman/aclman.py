@@ -21,6 +21,7 @@ script_begin_time = datetime.datetime.now()
 
 cli = CliParser('ACLMAN')
 cli.option('--live', dest='live', action='store_true', default=False, help="run ACLMAN live on production systems")
+cli.option('-s', '--sectionfile', dest='sectionfile', metavar='FILE', action='store', default="data/sections.csv", help="specify a path to a CSV section file defining privileges")
 args = cli.parse()
 
 if args.live:
@@ -41,16 +42,15 @@ logging.info("ACLMAN script started: %s" % script_begin_time)
 
 
 # Read in and process the list of sections from the section file.
-logging.info("Processing requested list of sections from section file....")
+logging.info("Processing requested list of sections from section file `%s`...." % args.sectionfile)
 
-# TODO: Allow for other section files to be read in.
-s = open("data/sections.csv", "r")
+s = open(args.sectionfile, "r")
 sreader = csv.reader(s)
 all_sections = []
 all_section_privileges = {}
 for row in sreader:
   # TODO: Be more robust in how this file is read in.
-  # TODO: Allow for comments in the section file.
+  # TODO: Allow for comments/header in the section file.
   section = Section(row[0], row[1], row[2])
 
   if section in all_sections:
@@ -69,10 +69,9 @@ s.close()
 
 # Read in and process the privileges associated with each section from the
 # section file.
-logging.info("Processing associated privileges for %d sections from section file...." % len(all_sections))
+logging.info("Processing associated privileges for %d sections from section file `%s`...." % (len(all_sections), args.sectionfile))
 
-# TODO: Allow for other section files to be read in.
-s = open("data/sections.csv", "r")
+s = open(args.sectionfile, "r")
 sreader = csv.reader(s)
 all_privilege_types = []
 for row in sreader:
