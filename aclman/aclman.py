@@ -27,9 +27,11 @@ args = cli.parse()
 if args.live:
   import aclman.secrets.production as secrets
   run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
+  environment = "PRODUCTION"
 else:
   import aclman.secrets.development as secrets
   run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S-dryrun")
+  environment = "DEVELOPMENT"
 
 log_dir = "log"
 log_file = "%s.log" % run_date
@@ -52,6 +54,7 @@ subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
 
 helpers.mkdir_p("output")
 logger.info("ACLMAN script started: %s" % script_begin_time)
+logger.info("Environment is: %s" % environment)
 
 
 
@@ -364,7 +367,7 @@ subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
 #   subprocess.run(["sftp", "-b", "-", ...], ..., input=...)
 # as opposed to `subprocess.call(...)`.
 # See https://docs.python.org/3/library/subprocess.html#subprocess.run
-logger.info("Uploading XML file for door/keycard ACLs to CSGold Util server....")
+logger.info("Uploading XML file for door/keycard ACLs to CSGold Util %s server...." % environment)
 batchfile_path = '/tmp/aclman-sftp-batchfile'
 with open(batchfile_path, 'w') as batchfile:
   batchfile.write("put %s Drop/" % keycard_path)
@@ -436,7 +439,7 @@ subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
 
 # Epilogue.
 script_end_time = datetime.datetime.now()
-logger.info("Done.")
+logger.info("Done with %s run." % environment)
 script_elapsed = (script_end_time - script_begin_time).total_seconds()
 logger.info("  Finished: %s" % script_end_time)
 logger.info("   Started: %s" % script_begin_time)
