@@ -29,6 +29,11 @@ if args.live:
   run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
   environment = "PRODUCTION"
 else:
+  # Confirm development runs before beginning, especially since inputs can be large.
+  response = input("Begin a DEVELOPMENT run on `%s`? (y/n) " % args.sectionfile)
+  if response.lower() not in ['y', 'yes']:
+    print("Aborted.")
+    sys.exit(1)
   import aclman.secrets.development as secrets
   run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S-dryrun")
   environment = "DEVELOPMENT"
