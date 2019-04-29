@@ -290,11 +290,35 @@ for andrewId in sorted(all_students.keys()):
   for privilege in coalesced_student_privileges[andrewId]:
     logger.debug("  %s" % privilege)
 
+# Free the nested dictionary of individual privileges since we're done with it.
+del all_student_privileges
+
 
 
 # Now that we have calculated the set of privileges for each student, generate
 # various outputs.
 
+
+
+#   0. Generate and store locally a JSON representation of the calculated data.
+#        - TODO: Check diffs between the current version of this data and the
+#          most recently cached version before determining what actions should
+#          be taken on any downstream systems.
+jsondata_dir = "output/jsondata"
+jsondata_file = "data-%s.json" % run_date
+jsondata_path = jsondata_dir + '/' + jsondata_file
+helpers.mkdir_p(jsondata_dir)
+logger.info("Generating JSON file to locally cache calculated data at `%s`...." % jsondata_path)
+
+all_data = {}
+for student in all_students:
+  all_data[student] = {'biographical': all_students[student], 'sections': all_student_sections[student], 'privileges': coalesced_student_privileges[student]}
+
+# Write out the file.
+with open(jsondata_path, 'w') as jsonfile:
+  jsonfile.write(json.dumps(all_data, sort_keys=True, indent=2, cls=helpers.CustomJSONEncoder))
+jsonfile.close()
+subprocess.call(["ln", "-sf", jsondata_file, jsondata_dir + "/latest.json"])
 
 
 #   1. Generate XML file for door/keycard ACL management, upload via SFTP with
@@ -408,8 +432,7 @@ subprocess.call(["sftp", "-b", batchfile_path, "-i", secrets.csgold_util['ssh_ke
 #      semi-manual scripts.)
 
 
-# In the meantime, as an intermediate output, create stripped-down CSV roster
-# files:
+# As an additional intermediate output, create stripped-down CSV roster files:
 roster_dir = "output/rosters"
 roster_file = "rosters-%s.csv" % run_date
 roster_path = roster_dir + '/' + roster_file

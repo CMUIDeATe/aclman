@@ -38,6 +38,9 @@ class PrivilegeType:
   def __eq__(self, other):
     return (self.key, self.value) == (other.key, other.value)
 
+  def __lt__(self, other):
+    return (self.key, self.value) < (other.key, other.value)
+
   def __hash__(self):
     return hash((self.key, self.value))
 
