@@ -55,7 +55,9 @@ if not args.live:
   console_log_handler.setLevel(logging.INFO)
   logger.addHandler(console_log_handler)
 
-subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
+subprocess.call(["ln", "-sf", log_file, log_dir + "/latest-%s.log" % environment])
+if args.live:
+  subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
 
 helpers.mkdir_p("output")
 logger.info("ACLMAN script started: %s" % script_begin_time)
@@ -323,7 +325,9 @@ for student in all_students:
 with open(jsondata_path, 'w') as jsonfile:
   jsonfile.write(json.dumps(all_data, sort_keys=True, indent=2, cls=helpers.CustomJSONEncoder))
 jsonfile.close()
-subprocess.call(["ln", "-sf", jsondata_file, jsondata_dir + "/latest.json"])
+subprocess.call(["ln", "-sf", jsondata_file, jsondata_dir + "/latest-%s.json" % environment])
+if args.live:
+  subprocess.call(["ln", "-sf", jsondata_file, jsondata_dir + "/latest.json"])
 
 
 #   1. Generate XML file for door/keycard ACL management, upload via SFTP with
@@ -388,7 +392,9 @@ with open(keycard_path, 'w') as xmlfile:
   xmldata = xml.dom.minidom.parseString(ET.tostring(keycard_xml_root))
   xmlfile.write(xmldata.toprettyxml(indent="  "))
 xmlfile.close()
-subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
+subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest-%s.xml" % environment])
+if args.live:
+  subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
 
 # Upload the file via SFTP to the CSGold Util server.
 # NOTE: In Python 3.5, the need for an SFTP batchfile should be avoided by
@@ -462,7 +468,9 @@ with open(roster_path, 'w') as csvfile:
       writer.writerow(row)
 
 csvfile.close()
-subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
+subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest-%s.csv" % environment])
+if args.live:
+  subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
 
 
 # Epilogue.
