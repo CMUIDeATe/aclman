@@ -15,6 +15,8 @@ import aclman.helpers as helpers
 
 from aclman.cli import CliParser
 
+import aclman.api.grouper as Grouper
+
 
 # Prologue.
 script_begin_time = datetime.datetime.now()
@@ -38,6 +40,11 @@ else:
   run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S-dryrun")
   environment = "DEVELOPMENT"
 
+# Establish auth to each API.
+Grouper.set_secrets(secrets.grouper_api)
+# TODO: Modularize S3 similarly.
+
+# Configure logging.
 log_dir = "log"
 log_file = "%s.log" % run_date
 
@@ -419,21 +426,64 @@ subprocess.call(["sftp", "-b", batchfile_path, "-i", secrets.csgold_util['ssh_ke
 # empirically.
 
 
-
-# We also need TODO the following things:
 #   2. Populate Grouper groups for inclusion in determination of laser cutter
 #      access privileges.  (Most users must also appear in EH&S groups
-#      indicating completion of Fire Extinguisher Use Training.)
+#      indicating completion of their "Fire Extinguisher Training" and "Laser
+#      Cutter Safety" modules.)
 #        - NOTE: Enrollment data is NOT nominaly needed here, as account expiry
 #          will override when necessary.
+
+# TODO: Store this group ID in a configuration file.
+laser_group = "Apps:IDeATe:Permissions:Laser Cutter:Laser cutter courses"
+
+# Get the existing group members.
+logger.info("Getting existing group memberships for `%s`...." % laser_group)
+existing_andrewIds = Grouper.get_members(laser_group)
+
+# Calculate who should be in the group based on privileges.
+logger.info("Calculating new group memberships for `%s`...." % laser_group)
+calculated_andrewIds = set()
+for andrewId in sorted(coalesced_student_privileges.keys()):
+  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "laser_course"]:
+    if privilege.is_current():
+      calculated_andrewIds.add(andrewId)
+
+# Determine differences between current and calculated group membership.
+logger.info("Determining group membership differences....")
+grouper_to_del = existing_andrewIds.difference(calculated_andrewIds)
+grouper_to_add = calculated_andrewIds.difference(existing_andrewIds)
+
+# Add and remove members as determined.
+logger.info("Removing %d members from group `%s`...." % (len(grouper_to_del), laser_group))
+for andrewId in sorted(grouper_to_del):
+  try:
+    Grouper.remove_member(laser_group, andrewId)
+    logger.debug("  Removed %s", all_students[andrewId] if andrewId in all_students else andrewId)
+  except urllib.error.HTTPError as e:
+    sys.stderr.write("  Grouper error while removing member %s: %s\n" % (andrewId, e))
+    logger.error("  Grouper error while removing member %s: %s" % (andrewId, e))
+logger.info("Adding %d members to group `%s`...." % (len(grouper_to_add), laser_group))
+for andrewId in sorted(grouper_to_add):
+  try:
+    Grouper.add_member(laser_group, andrewId)
+    logger.debug("  Added %s", all_students[andrewId] if andrewId in all_students else andrewId)
+  except urllib.error.HTTPError as e:
+    sys.stderr.write("  Grouper error while adding member %s: %s\n" % (andrewId, e))
+    logger.error("  Grouper error while adding member %s: %s" % (andrewId, e))
+
+
+
+# We also need TODO the following things:
 #   3. Generate access lists for room reservation privileges in MRBS; update
 #      via direct entries into the MySQL database.
 #        - NOTE: Enrollment data is NOT nominaly needed here, as this privilege
 #          is only granted for the current semester for HL A10A only.
+#        - Use Grouper to store a list of positive overrides, since some users
+#          (typically faculty) will need to maintain such access without
+#          appearing on student rosters.
 #   4. Compare with a dump of existing user lists from Zoho/Quartermaster for
-#      Lending Desk privileges, determine diffs, and output them to a place
-#      where they can be manually processed in Zoho.  (Zoho cannot pull
-#      external data.)
+#      Lending Desk privileges, determine diffs, and update Zoho memberships
+#      accordingly.
 #        - NOTE: Enrollment data is REQUIRED to do this properly, since
 #          permissions persist even after a student is no longer
 #          contemporaneously enrolled in the course which conferred this
