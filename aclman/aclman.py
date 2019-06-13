@@ -27,6 +27,7 @@ cli.option('-s', '--sectionfile', dest='sectionfile', metavar='FILE', action='st
 args = cli.parse()
 
 if args.live:
+  import aclman.config.production as config
   import aclman.secrets.production as secrets
   run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
   environment = "PRODUCTION"
@@ -36,6 +37,7 @@ else:
   if response.lower() not in ['y', 'yes']:
     print("Aborted.")
     sys.exit(1)
+  import aclman.config.development as config
   import aclman.secrets.development as secrets
   run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S-dryrun")
   environment = "DEVELOPMENT"
@@ -348,13 +350,6 @@ keycard_path = keycard_dir + '/' + keycard_file
 helpers.mkdir_p(keycard_dir)
 logger.info("Generating XML file for CSGold door/keycard ACLs at `%s`...." % keycard_path)
 
-# TODO: Store this mapping in a configuration file.
-csgold_group_mapping = {
-  'HL A10A': '789',
-  'HL A10': '790',
-  'HL A5': '791'
-}
-
 # Create the root elements of the XML file.
 keycard_xml_root = ET.Element('AccessAssignments')
 keycard_comment = ET.Comment('Generated as \'%s\' by ACLMAN at %s' % (keycard_file, datetime.datetime.now()))
@@ -389,7 +384,7 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     priv_asgn_comment = ET.SubElement(priv_asgn, 'Comment')
 
     priv_asgn_andrewid.text = andrewId
-    priv_asgn_group.text = csgold_group_mapping[privilege.value]
+    priv_asgn_group.text = config.csgold_group_mapping[privilege.value]
     priv_asgn_start.text = str(privilege.start)
     priv_asgn_end.text = str(privilege.end)
     priv_asgn_comment.text = "ACLMAN-%s: %s" % (run_date, ','.join([str(x) for x in privilege.sections]))
@@ -432,9 +427,7 @@ subprocess.call(["sftp", "-b", batchfile_path, "-i", secrets.csgold_util['ssh_ke
 #      Cutter Safety" modules.)
 #        - NOTE: Enrollment data is NOT nominaly needed here, as account expiry
 #          will override when necessary.
-
-# TODO: Store this group ID in a configuration file.
-laser_group = "Apps:IDeATe:Permissions:Laser Cutter:Laser cutter courses"
+laser_group = config.grouper_groups['laser_course']
 
 # Get the existing group members.
 logger.info("Getting existing group memberships for `%s`...." % laser_group)
