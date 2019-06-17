@@ -16,6 +16,7 @@ import aclman.helpers as helpers
 from aclman.cli import CliParser
 
 import aclman.api.grouper as Grouper
+import aclman.api.mrbs as Mrbs
 
 
 # Prologue.
@@ -44,6 +45,7 @@ else:
 
 # Establish auth to each API.
 Grouper.set_secrets(secrets.grouper_api)
+Mrbs.set_secrets(secrets.mrbs_db)
 # TODO: Modularize S3 similarly.
 
 # Configure logging.
@@ -465,15 +467,77 @@ for andrewId in sorted(grouper_to_add):
     logger.error("  Grouper error while adding member %s: %s" % (andrewId, e))
 
 
-
-# We also need TODO the following things:
 #   3. Generate access lists for room reservation privileges in MRBS; update
 #      via direct entries into the MySQL database.
 #        - NOTE: Enrollment data is NOT nominaly needed here, as this privilege
 #          is only granted for the current semester for HL A10A only.
-#        - Use Grouper to store a list of positive overrides, since some users
-#          (typically faculty) will need to maintain such access without
-#          appearing on student rosters.
+
+# Iterate over all 'room_reservation' privilege types.
+for privilege_type in all_privilege_types:
+  if privilege_type.key != "room_reservation":
+    continue
+  else:
+    mrbs_roomNumber = privilege_type.value
+    mrbs_roomId = config.mrbs_room_mapping[mrbs_roomNumber]
+
+    # Get the existing group members.
+    logger.info("Getting existing MRBS ACLs for %s (room ID %d)...." % (mrbs_roomNumber, mrbs_roomId))
+    existing_andrewIds = Mrbs.get_members(mrbs_roomId)
+
+    # Calculate who should be in the group based on privileges.
+    logger.info("Calculating new MRBS ACL memberships for %s (room ID %d)...." % (mrbs_roomNumber, mrbs_roomId))
+    calculated_andrewIds = set()
+    for andrewId in sorted(coalesced_student_privileges.keys()):
+      for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "room_reservation" and x.value == mrbs_roomNumber]:
+        if privilege.is_current():
+          calculated_andrewIds.add(andrewId)
+    # Add positive overrides to calculated list.
+    # These are typically faculty or student employees who need reservation
+    # privileges but would not receive them through enrollment in a course.
+    # Get these from Grouper.
+    logger.info("Adding positive overrides....")
+    mrbs_overrides = Grouper.get_members("Apps:IDeATe:Permissions:Room Reservation:%s - Overrides Positive" % mrbs_roomNumber)
+    for andrewId in mrbs_overrides:
+      calculated_andrewIds.add(andrewId)
+
+    # Determine differences between current and calculated group membership.
+    logger.info("Determining group membership differences....")
+    mrbs_to_del = existing_andrewIds.difference(calculated_andrewIds)
+    mrbs_to_add = calculated_andrewIds.difference(existing_andrewIds)
+
+    if not args.live:
+      # Since there is presently no development environment for MRBS, take no
+      # action in DEVELOPMENT mode; rather, simply output the calculated
+      # differences.
+      logger.info("Environment is %s; NOT adding/removing MRBS users." % environment)
+      logger.debug("%d members should be removed from MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_del), mrbs_roomNumber, mrbs_roomId))
+      for andrewId in sorted(mrbs_to_del):
+        logger.debug("  %s", all_students[andrewId] if andrewId in all_students else andrewId)
+      logger.debug("%d members should be added to MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_add), mrbs_roomNumber, mrbs_roomId))
+      for andrewId in sorted(mrbs_to_add):
+        logger.debug("  %s", all_students[andrewId] if andrewId in all_students else andrewId)
+    else:
+      # In PRODUCTION, add and remove members as determined.
+      logger.info("Removing %d members from MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_del), mrbs_roomNumber, mrbs_roomId))
+      for andrewId in sorted(mrbs_to_del):
+        try:
+          Mrbs.remove_member(mrbs_roomId, andrewId)
+          logger.debug("  Removed %s", all_students[andrewId] if andrewId in all_students else andrewId)
+        except:
+          sys.stderr.write("  MRBS error while removing member %s!\n" % andrewId)
+          logger.error("  MRBS error while removing member %s!" % andrewId)
+      logger.info("Adding %d members to MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_add), mrbs_roomNumber, mrbs_roomId))
+      for andrewId in sorted(mrbs_to_add):
+        try:
+          Mrbs.add_member(mrbs_roomId, andrewId)
+          logger.debug("  Added %s", all_students[andrewId] if andrewId in all_students else andrewId)
+        except:
+          sys.stderr.write("  MRBS error while adding member %s!\n" % andrewId)
+          logger.error("  MRBS error while adding member %s!" % andrewId)
+
+
+
+# We also need TODO the following things:
 #   4. Compare with a dump of existing user lists from Zoho/Quartermaster for
 #      Lending Desk privileges, determine diffs, and update Zoho memberships
 #      accordingly.
