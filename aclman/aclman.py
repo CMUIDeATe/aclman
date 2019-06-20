@@ -15,6 +15,7 @@ import aclman.helpers as helpers
 
 from aclman.cli import CliParser
 
+import aclman.api.s3 as S3
 import aclman.api.grouper as Grouper
 import aclman.api.mrbs as Mrbs
 
@@ -44,9 +45,9 @@ else:
   environment = "DEVELOPMENT"
 
 # Establish auth to each API.
+S3.set_secrets(secrets.s3_api)
 Grouper.set_secrets(secrets.grouper_api)
 Mrbs.set_secrets(secrets.mrbs_db)
-# TODO: Modularize S3 similarly.
 
 # Configure logging.
 log_dir = "log"
@@ -130,37 +131,16 @@ for row in sreader:
 s.close()
 
 
-# Establish auth to S3 API.
-s3_api = secrets.s3_api
-
-passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-passman.add_password(None, s3_api['hostname'], s3_api['username'], s3_api['password'])
-
-authhandler = urllib.request.HTTPBasicAuthHandler(passman)
-opener = urllib.request.build_opener(authhandler)
-urllib.request.install_opener(opener)
-
+# TODO: If `section` is discovered not to exist, mark it as not existing and
+# remove it from the list of sections, in order to avoid making further calls
+# against it.
 
 # Find all crosslisted sections, and copy the associated privileges where
 # appropriate.
 all_crosslisted_sections = []
 logger.info("Finding crosslists of the specified sections and copying privileges....")
 for section in all_sections:
-  section_url = s3_api['hostname'] + '/course/courses/' + str(section)
-  try:
-    section_response = urllib.request.urlopen(section_url).read()
-  except urllib.error.HTTPError:
-    sys.stderr.write("Couldn't find crosslists: SECTION %s DOESN'T EXIST!\n" % section)
-    logger.error("Couldn't find crosslists: SECTION %s DOESN'T EXIST!" % section)
-    # TODO: Also mark `section` as not existing and remove it from the list of
-    # sections, in order to avoid making further calls against it.
-    continue
-  section_data = json.loads(section_response.decode('utf-8'))
-  section_crosslists = section_data['crossListedCourses']
-
-  for crosslist in section_crosslists:
-    crosslist_section = Section(crosslist['semesterCode'], crosslist['courseNumber'], crosslist['section'])
-
+  for crosslist_section in S3.get_crosslists(section):
     if crosslist_section in all_sections:
       # If the section already exists, just skip it.  Don't copy the privileges,
       # as others might be explicitly defined, e.g., different privileges for
@@ -194,21 +174,8 @@ logger.info("Processing rosters for each section....")
 all_bio_urls = {}
 enrollments_by_bio_url = {}
 
-endpoint = s3_api['hostname'] + '/course/courses/roster'
 for section in all_sections:
-  parameters = {
-    'semester': section.semester,
-    'courseNumber': section.course,
-    'section': section.section
-  }
-
-  # NOTE: Sections which do not exist will still return HTTP 200 with an empty
-  # `students` element here.
-  section_url = endpoint + '?' + urllib.parse.urlencode(parameters)
-  section_response = urllib.request.urlopen(section_url).read()
-  section_data = json.loads(section_response.decode('utf-8'))
-  section_roster = section_data['students']
-
+  section_roster = S3.get_roster_bio_urls(section)
   enrollment_count = len(section_roster)
   if enrollment_count == 0:
     logger.warning("%-12s: NO STUDENTS ARE ENROLLED!" % section)
@@ -226,6 +193,10 @@ for section in all_sections:
     # TODO: Fix this data structure so it's useful.
     all_bio_urls[bio_url]['sections'].append(section)
 
+    # NOTE: The `section_roster` object should, in principle, contain
+    # `finalGrade` data for each student, but doesn't in practice.
+    # TODO: Request explicit API access to such `finalGrade` data.
+
 
 # Get biographical data for each student, and record their sections alongside.
 logger.info("Getting biographical data for all %d dedup'd students found...." % len(all_bio_urls))
@@ -235,14 +206,7 @@ all_student_sections = {}
 for bio_url in all_bio_urls:
   # Keep track of this student's enrolled sections.
   sections = sorted(all_bio_urls[bio_url]['sections'])
-
-  # NOTE: The `student_response` object should, in principle, contain
-  # `finalGrade` data, but doesn't in practice.
-  # TODO: Request explicit API access to such `finalGrade` data.
-  student_response = urllib.request.urlopen(bio_url).read()
-  student_data = json.loads(student_response.decode('utf-8'))
-  # TODO: Need to do error-checking on HTTP status.
-  student = Student(student_data, bio_url)
+  student = S3.get_student_from_bio_url(bio_url)
 
   logger.debug("%-8s - %-28s\t%s" % (student.andrewId, student.allNames,
     ','.join(str(x) for x in sections)))
