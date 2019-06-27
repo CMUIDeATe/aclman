@@ -200,9 +200,6 @@ for section in all_sections:
 
 # Get biographical data for each student, and record their sections alongside.
 logger.info("Getting biographical data for all %d dedup'd students found...." % len(all_bio_urls))
-all_students = {}
-all_student_sections = {}
-
 for bio_url in all_bio_urls:
   # Keep track of this student's enrolled sections.
   sections = sorted(all_bio_urls[bio_url]['sections'])
@@ -214,24 +211,24 @@ for bio_url in all_bio_urls:
   # Record this student's data and their sections.
   # TODO: Request explicit API access to student enrollment status, e.g., E1,
   # G2, R3, etc.
-  all_students[student.andrewId] = student
-  all_student_sections[student.andrewId] = sections
+  S3.students[student.andrewId] = student
+  S3.student_sections[student.andrewId] = sections
 
 # Free the dictionary of BIO URLs since we're done with it.
 del all_bio_urls
 
 
 # Determine each student's privileges.
-logger.info("Computing privileges for %d students...." % len(all_students))
+logger.info("Computing privileges for %d students...." % len(S3.students))
 all_student_privileges = {}
 coalesced_student_privileges = {}
 
-for andrewId in sorted(all_students.keys()):
-  student = all_students[andrewId]
+for andrewId in sorted(S3.students.keys()):
+  student = S3.students[andrewId]
   logger.debug("%-8s - %-28s" % (andrewId, student.allNames))
   all_student_privileges[andrewId] = {}
 
-  for section in all_student_sections[andrewId]:
+  for section in S3.student_sections[andrewId]:
     for privilege in all_section_privileges[section]:
       privilege_type = privilege.privilege_type
 
@@ -293,8 +290,8 @@ helpers.mkdir_p(jsondata_dir)
 logger.info("Generating JSON file to locally cache calculated data at `%s`...." % jsondata_path)
 
 all_data = {}
-for student in all_students:
-  all_data[student] = {'biographical': all_students[student], 'sections': all_student_sections[student], 'privileges': coalesced_student_privileges[student]}
+for student in S3.students:
+  all_data[student] = {'biographical': S3.students[student], 'sections': S3.student_sections[student], 'privileges': coalesced_student_privileges[student]}
 
 # Write out the file.
 with open(jsondata_path, 'w') as jsonfile:
@@ -417,7 +414,7 @@ logger.info("Removing %d members from group `%s`...." % (len(grouper_to_del), la
 for andrewId in sorted(grouper_to_del):
   try:
     Grouper.remove_member(laser_group, andrewId)
-    logger.debug("  Removed %s", all_students[andrewId] if andrewId in all_students else andrewId)
+    logger.debug("  Removed %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
   except urllib.error.HTTPError as e:
     sys.stderr.write("  Grouper error while removing member %s: %s\n" % (andrewId, e))
     logger.error("  Grouper error while removing member %s: %s" % (andrewId, e))
@@ -425,7 +422,7 @@ logger.info("Adding %d members to group `%s`...." % (len(grouper_to_add), laser_
 for andrewId in sorted(grouper_to_add):
   try:
     Grouper.add_member(laser_group, andrewId)
-    logger.debug("  Added %s", all_students[andrewId] if andrewId in all_students else andrewId)
+    logger.debug("  Added %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
   except urllib.error.HTTPError as e:
     sys.stderr.write("  Grouper error while adding member %s: %s\n" % (andrewId, e))
     logger.error("  Grouper error while adding member %s: %s" % (andrewId, e))
@@ -476,17 +473,17 @@ for privilege_type in all_privilege_types:
       logger.info("Environment is %s; NOT adding/removing MRBS users." % environment)
       logger.debug("%d members should be removed from MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_del), mrbs_roomNumber, mrbs_roomId))
       for andrewId in sorted(mrbs_to_del):
-        logger.debug("  %s", all_students[andrewId] if andrewId in all_students else andrewId)
+        logger.debug("  %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
       logger.debug("%d members should be added to MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_add), mrbs_roomNumber, mrbs_roomId))
       for andrewId in sorted(mrbs_to_add):
-        logger.debug("  %s", all_students[andrewId] if andrewId in all_students else andrewId)
+        logger.debug("  %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
     else:
       # In PRODUCTION, add and remove members as determined.
       logger.info("Removing %d members from MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_del), mrbs_roomNumber, mrbs_roomId))
       for andrewId in sorted(mrbs_to_del):
         try:
           Mrbs.remove_member(mrbs_roomId, andrewId)
-          logger.debug("  Removed %s", all_students[andrewId] if andrewId in all_students else andrewId)
+          logger.debug("  Removed %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
         except:
           sys.stderr.write("  MRBS error while removing member %s!\n" % andrewId)
           logger.error("  MRBS error while removing member %s!" % andrewId)
@@ -494,7 +491,7 @@ for privilege_type in all_privilege_types:
       for andrewId in sorted(mrbs_to_add):
         try:
           Mrbs.add_member(mrbs_roomId, andrewId)
-          logger.debug("  Added %s", all_students[andrewId] if andrewId in all_students else andrewId)
+          logger.debug("  Added %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
         except:
           sys.stderr.write("  MRBS error while adding member %s!\n" % andrewId)
           logger.error("  MRBS error while adding member %s!" % andrewId)
@@ -526,15 +523,15 @@ with open(roster_path, 'w') as csvfile:
   writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
   writer.writeheader()
 
-  for andrewId in sorted(all_student_sections.keys()):
-    for section in all_student_sections[andrewId]:
+  for andrewId in sorted(S3.student_sections.keys()):
+    for section in S3.student_sections[andrewId]:
       row = {
         'SEMESTER ID': section.semester,
         'COURSE ID': section.course,
         'SECTION ID': section.section,
         'ANDREW ID': andrewId,
-        'MC LAST NAME': all_students[andrewId].lastName,
-        'MC FIRST NAME': all_students[andrewId].commonName
+        'MC LAST NAME': S3.students[andrewId].lastName,
+        'MC FIRST NAME': S3.students[andrewId].commonName
       }
       writer.writerow(row)
 

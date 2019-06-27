@@ -7,6 +7,9 @@ from aclman.models import *
 
 secrets = {}
 
+students = {}
+student_sections = {}
+
 def set_secrets(s):
   global secrets
   secrets = s
