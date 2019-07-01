@@ -49,6 +49,21 @@ def get_roster_bio_urls(section):
   section_roster = section_data['students']
   return section_roster
 
+def get_student(andrewId):
+  global students
+  if andrewId not in students:
+    students[andrewId] = get_student_from_andrewid(andrewId)
+  return students[andrewId]
+
+def get_student_from_andrewid(andrewId):
+  global secrets
+  endpoint = "%s/student/bio/%s?idType=ANDREW" % (secrets['hostname'], andrewId)
+  student_response = urllib.request.urlopen(endpoint).read()
+  student_data = json.loads(student_response.decode('utf-8'))
+  # TODO: Need to do error-checking on HTTP status.
+  student = Student(student_data, None)
+  return student
+
 def get_student_from_bio_url(bio_url):
   global secrets
   endpoint = bio_url

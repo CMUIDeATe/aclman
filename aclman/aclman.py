@@ -18,6 +18,7 @@ from aclman.cli import CliParser
 import aclman.api.s3 as S3
 import aclman.api.grouper as Grouper
 import aclman.api.mrbs as Mrbs
+import aclman.api.zoho as Zoho
 
 
 # Prologue.
@@ -48,6 +49,7 @@ else:
 S3.set_secrets(secrets.s3_api)
 Grouper.set_secrets(secrets.grouper_api)
 Mrbs.set_secrets(secrets.mrbs_db)
+Zoho.set_secrets(secrets.zoho_api)
 
 # Configure logging.
 log_dir = "log"

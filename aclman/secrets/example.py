@@ -21,3 +21,10 @@ mrbs_db = {
   'username': 'MRBS_DB_USERNAME',
   'password': 'MRBS_DB_PASSWORD'
 }
+# Zoho API credentials
+# Authtoken comes from process described at https://www.zoho.com/creator/help/api/prerequisites/generate-auth-token.html
+zoho_api = {
+  'owner': 'ZOHO_OWNER_NAME',
+  'application': 'ZOHO_APP_NAME',
+  'authtoken': 'ZOHO_AUTHTOKEN'
+}
