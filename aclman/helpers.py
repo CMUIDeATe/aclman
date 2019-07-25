@@ -20,5 +20,5 @@ class CustomJSONEncoder(JSONEncoder):
     if isinstance(obj, (Section, Privilege, PrivilegeType)):
       return str(obj)
     if isinstance(obj, Student):
-      return {'firstName': obj.firstName, 'preferredName': obj.preferredName, 'lastName': obj.lastName, 'bioUrl': obj.bioUrl, 'cardId': obj.cardId}
+      return {'firstName': obj.firstName, 'preferredName': obj.preferredName, 'lastName': obj.lastName}
     return JSONEncoder.default(self, obj)

@@ -125,14 +125,12 @@ class Privilege:
 
 
 class Student:
-  def __init__(self, data, bio_url):
+  def __init__(self, data):
     self.data = data
-    self.bioUrl = bio_url
-    self.andrewId = data['andrewId']
-    self.cardId = data['cardId']
-    self.firstName = data['firstName']
-    self.preferredName = data['preferredName']
-    self.lastName = data['lastName']
+    self.andrewId = data['biographical']['andrewId']
+    self.firstName = data['biographical']['firstName']
+    self.preferredName = data['biographical']['preferredName']
+    self.lastName = data['biographical']['lastName']
     # Derive other names.
     if self.preferredName:
       self.commonName = self.preferredName
@@ -144,6 +142,9 @@ class Student:
     self.fullDisplayName = "%s %s" % (self.commonName, self.lastName)
     # TODO: Find out whether `hasHolds` and `holdDescriptions` might ever
     # contain any useful data.
+
+  def set_bioId(self, bioId):
+    self.data['biographical']['bioId'] = bioId
 
   def __str__(self):
     if self.preferredName:

@@ -5,6 +5,7 @@ import logging
 import sys
 import subprocess
 import csv, json
+import re
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 import urllib.request
@@ -165,19 +166,19 @@ del all_crosslisted_sections
 
 
 # Load the rosters for all sections and bring each student's enrollment data
-# into the `all_bio_urls` structure, which abstracts each student to their BIO
-# URL.
+# into the `all_bioIds` structure, which abstracts each student to their BIO
+# ID.
 #
 # NOTE: We maintain this layer of abstraction for now because getting actual
 # data on the students themselves requires a separate API call, which we
-# minimize here by coalescing records with the same student BIO URL before
+# minimize here by coalescing records with the same student BIO ID before
 # moving on.
 logger.info("Processing rosters for each section....")
-all_bio_urls = {}
-enrollments_by_bio_url = {}
+all_bioIds = {}
+enrollments_by_bioId = {}
 
 for section in all_sections:
-  section_roster = S3.get_roster_bio_urls(section)
+  section_roster = S3.get_roster_bioUrls(section)
   enrollment_count = len(section_roster)
   if enrollment_count == 0:
     logger.warning("%-12s: NO STUDENTS ARE ENROLLED!" % section)
@@ -186,38 +187,43 @@ for section in all_sections:
 
   for enrollment in section_roster:
     # The student BIO URL is a fully-qualified URL.
-    bio_url = enrollment['studentURL']
+    bioUrl = enrollment['studentURL']
+    # Extract the `bioID` from the `studentURL`.
+    pattern = re.compile("/bio/(\d+)\?idType=BIO")
+    bioId = pattern.findall(bioUrl)[0]
 
-    # Create a record for the student's BIO URL if it hasn't yet been seen.
-    if bio_url not in all_bio_urls:
-      all_bio_urls[bio_url] = { 'sections': [] }
+    # Create a record for the student's BIO ID if it hasn't yet been seen.
+    if bioId not in all_bioIds:
+      all_bioIds[bioId] = { 'sections': [] }
     # Mark that this student has enrollment in the section being processed.
     # TODO: Fix this data structure so it's useful.
-    all_bio_urls[bio_url]['sections'].append(section)
+    all_bioIds[bioId]['sections'].append(section)
 
     # NOTE: The `section_roster` object should, in principle, contain
     # `finalGrade` data for each student, but doesn't in practice.
     # TODO: Request explicit API access to such `finalGrade` data.
 
 
-# Get biographical data for each student, and record their sections alongside.
-logger.info("Getting biographical data for all %d dedup'd students found...." % len(all_bio_urls))
-for bio_url in all_bio_urls:
+# Get data for each student, and record their sections alongside.
+logger.info("Getting data for all %d dedup'd students found...." % len(all_bioIds))
+for bioId in all_bioIds:
   # Keep track of this student's enrolled sections.
-  sections = sorted(all_bio_urls[bio_url]['sections'])
-  student = S3.get_student_from_bio_url(bio_url)
+  sections = sorted(all_bioIds[bioId]['sections'])
+  student = S3.get_student_from_bioid(bioId)
 
-  logger.debug("%-8s - %-28s\t%s" % (student.andrewId, student.allNames,
-    ','.join(str(x) for x in sections)))
+  if student:
+    logger.debug("%-8s - %-28s\t%s" % (student.andrewId, student.allNames,
+      ','.join(str(x) for x in sections)))
+    # Record this student's data and their sections.
+    # TODO: Request explicit API access to student enrollment status, e.g., E1,
+    # G2, R3, etc.
+    S3.students[student.andrewId] = student
+    S3.student_sections[student.andrewId] = sections
+  else:
+    logger.error("Did not find data for BIO ID '%s'" % bioId)
 
-  # Record this student's data and their sections.
-  # TODO: Request explicit API access to student enrollment status, e.g., E1,
-  # G2, R3, etc.
-  S3.students[student.andrewId] = student
-  S3.student_sections[student.andrewId] = sections
-
-# Free the dictionary of BIO URLs since we're done with it.
-del all_bio_urls
+# Free the dictionary of BIO IDs since we're done with it.
+del all_bioIds
 
 
 # Determine each student's privileges.
@@ -293,7 +299,11 @@ logger.info("Generating JSON file to locally cache calculated data at `%s`...." 
 
 all_data = {}
 for student in S3.students:
-  all_data[student] = {'biographical': S3.students[student], 'sections': S3.student_sections[student], 'privileges': coalesced_student_privileges[student]}
+  all_data[student] = {
+    'biographical': S3.students[student].data['biographical'],
+    'privileges': coalesced_student_privileges[student],
+    'sections': S3.student_sections[student]
+  }
 
 # Write out the file.
 with open(jsondata_path, 'w') as jsonfile:

@@ -34,7 +34,7 @@ def get_crosslists(section):
     section_crosslists = []
   return [ Section(crosslist['semesterCode'], crosslist['courseNumber'], crosslist['section']) for crosslist in section_crosslists ]
 
-def get_roster_bio_urls(section):
+def get_roster_bioUrls(section):
   global secrets
   parameters = {
     'semester': section.semester,
@@ -49,26 +49,57 @@ def get_roster_bio_urls(section):
   section_roster = section_data['students']
   return section_roster
 
-def get_student(andrewId):
-  global students
-  if andrewId not in students:
-    students[andrewId] = get_student_from_andrewid(andrewId)
-  return students[andrewId]
 
 def get_student_from_andrewid(andrewId):
-  global secrets
-  endpoint = "%s/student/bio/%s?idType=ANDREW" % (secrets['hostname'], andrewId)
-  student_response = urllib.request.urlopen(endpoint).read()
-  student_data = json.loads(student_response.decode('utf-8'))
-  # TODO: Need to do error-checking on HTTP status.
-  student = Student(student_data, None)
-  return student
+  global students
+  # Return memoized copy, if available.
+  if andrewId in students:
+    return students[andrewId]
+  # Otherwise, fetch the student's data from S3.
+  __fetch_student_data_from_andrewid(andrewId)
+  # NOTE: When fetching students in this fashion, `bioID` will come back null.
+  # Access to this data can be requested if it is needed.
+  return students[andrewId]
 
-def get_student_from_bio_url(bio_url):
+def get_student_from_bioid(bioId):
+  global students
+  andrewId = __translate_bioid_to_andrewid(bioId)
+  get_student_from_andrewid(andrewId)
+  # Fill in the missing `bioID` value, since it is known.
+  students[andrewId].set_bioId(bioId)
+  return students[andrewId]
+
+def __translate_bioid_to_andrewid(bioId):
+  # NOTE: This could also be memoized.
   global secrets
-  endpoint = bio_url
-  student_response = urllib.request.urlopen(endpoint).read()
-  student_data = json.loads(student_response.decode('utf-8'))
-  # TODO: Need to do error-checking on HTTP status.
-  student = Student(student_data, bio_url)
-  return student
+  endpoint = "%s/student/bio/%s?idType=BIO" % (secrets['hostname'], bioId)
+  bio_response = urllib.request.urlopen(endpoint).read()
+  try:
+    bio_data = json.loads(bio_response.decode('utf-8'))
+  except:
+    # HTTP 200 with blank response implies that no student record exists.
+    return None
+  return bio_data['andrewId']
+
+def __fetch_student_data_from_andrewid(andrewId):
+  global secrets, students
+  data = {}
+  # Get biographical data.
+  endpoint = "%s/student/bio/%s?idType=ANDREW" % (secrets['hostname'], andrewId)
+  bio_response = urllib.request.urlopen(endpoint).read()
+  try:
+    bio_data = json.loads(bio_response.decode('utf-8'))
+    data['biographical'] = {
+      'andrewId': bio_data['andrewId'],
+      'bioId': bio_data['bioId'],
+      'cardId': bio_data['cardId'],
+      'firstName': bio_data['firstName'],
+      'lastName': bio_data['lastName'],
+      'preferredName': bio_data['preferredName']
+    }
+  except:
+    # HTTP 200 with blank response implies that no student record exists.
+    return None
+  # Persist the data for this student to the global cache before returning it.
+  students[andrewId] = Student(data)
+  return students[andrewId]

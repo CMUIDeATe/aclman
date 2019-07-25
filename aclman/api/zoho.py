@@ -56,7 +56,7 @@ def get_user_data(andrewId):
 def add_user(andrewId):
   global secrets
   endpoint = "%s/api/%s/json/%s/form/%s/record/add" % (secrets['hostname'], secrets['owner'], secrets['application'], secrets['user_form'])
-  student = S3.get_student(andrewId)
+  student = S3.get_student_from_andrewid(andrewId)
   params = {
     'authtoken': secrets['authtoken'],
     'scope': "creatorapi",
