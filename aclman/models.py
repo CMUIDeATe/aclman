@@ -1,8 +1,71 @@
 import datetime
+import calendar
+
+class Semester:
+  def __init__(self, semester):
+    self.semester = semester
+    self.sem_type = self.semester[0]
+    if self.sem_type in ['M', 'N', 'U']:
+      self.sem_type = 'U'
+    self.year_code = self.semester[1:]
+
+    # Coerce two-digit year from semester code to a full, four-digit year.
+    self.year = datetime.datetime.strptime(self.year_code, '%y').year
+
+    # Spring term ends on the Tuesday between 10 and 16 May,
+    # and starts 120 days earlier:
+    if self.sem_type == 'S':
+      first_sun = self.__first_sunday_of_month(self.year, 5)
+      end_date = datetime.date(self.year, 5, first_sun + 9)
+      start_date = end_date - datetime.timedelta(days=120)
+    # Summer term ends on the Friday between 5 and 11 August,
+    # and starts 81 days earlier:
+    elif self.sem_type == 'U':
+      first_sun = self.__first_sunday_of_month(self.year, 8)
+      if first_sun == 7:
+        end_date = datetime.date(self.year, 8, first_sun - 2)
+      else:
+        end_date = datetime.date(self.year, 8, first_sun + 5)
+      start_date = end_date - datetime.timedelta(days=81)
+    # Fall term ends on the Monday between 15 and 21 December,
+    # and starts 112 days earlier:
+    elif self.sem_type == 'F':
+      first_sun = self.__first_sunday_of_month(self.year, 12)
+      if first_sun == 7:
+        end_date = datetime.date(self.year, 12, first_sun + 8)
+      else:
+        end_date = datetime.date(self.year, 12, first_sun + 15)
+      start_date = end_date - datetime.timedelta(days=112)
+    # If it's an unknown semester type, something is wrong.
+    else:
+      raise ValueError("Unknown semester type for '%s'" % semester)
+    # Convert the above dates into full datetimes.
+    self.start = datetime.datetime( start_date.year, start_date.month, start_date.day, 0, 0, 0 )
+    self.end = datetime.datetime( end_date.year, end_date.month, end_date.day, 23, 59, 59 )
+
+  def __str__(self):
+    return self.semester
+
+  def __eq__(self, other):
+    return self.start == other.start
+
+  def __lt__(self, other):
+    return self.start < other.start
+
+  def __hash__(self):
+    return hash(self.semester)
+
+  def __first_sunday_of_month(self, year, month):
+    return calendar.monthcalendar(year, month)[0][calendar.SUNDAY]
+
 
 class Section:
   def __init__(self, semester, course, section):
-    self.semester = semester
+    # Convert semester to a Semester object if it is passed, e.g., as a string.
+    if isinstance(semester, Semester):
+      self.semester = semester
+    else:
+      self.semester = Semester(semester)
     self.course = course
     self.section = section
 
@@ -18,10 +81,7 @@ class Section:
     if self.semester == other.semester:
       return self.course + '-' + self.section < other.course + '-' + other.section
     # Otherwise, sort chronologically by semester.
-    months = {'S': 1, 'M': 6, 'N': 7, 'F': 9}
-    self_term = 100*int(self.semester[1:]) + months[self.semester[0]]
-    other_term = 100*int(other.semester[1:]) + months[other.semester[0]]
-    return self_term < other_term
+    return self.semester < other.semester
 
   def __hash__(self):
     return hash((self.semester, self.course, self.section))

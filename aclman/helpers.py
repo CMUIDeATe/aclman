@@ -17,7 +17,7 @@ def mkdir_p(path):
 # From https://stackoverflow.com/a/3768975/782129, 2019-04-25
 class CustomJSONEncoder(JSONEncoder):
   def default(self, obj):
-    if isinstance(obj, (Section, Privilege, PrivilegeType)):
+    if isinstance(obj, (Semester, Section, Privilege, PrivilegeType)):
       return str(obj)
     if isinstance(obj, Student):
       return {'firstName': obj.firstName, 'preferredName': obj.preferredName, 'lastName': obj.lastName}
