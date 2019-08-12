@@ -4,11 +4,14 @@ import urllib.parse
 import json
 
 from aclman.models import *
+import aclman.helpers as helpers
 
 secrets = {}
 
 students = {}
 student_sections = {}
+
+business_semester = helpers.business_semester()
 
 def set_secrets(s):
   global secrets
@@ -82,9 +85,10 @@ def __translate_bioid_to_andrewid(bioId):
   return bio_data['andrewId']
 
 def __fetch_student_data_from_andrewid(andrewId):
-  global secrets, students
+  global secrets, students, business_semester
   data = {}
-  # Get biographical data.
+
+  # Get biographical data for the student.
   endpoint = "%s/student/bio/%s?idType=ANDREW" % (secrets['hostname'], andrewId)
   bio_response = urllib.request.urlopen(endpoint).read()
   try:
@@ -100,6 +104,50 @@ def __fetch_student_data_from_andrewid(andrewId):
   except:
     # HTTP 200 with blank response implies that no student record exists.
     return None
+
+  # Get academic data for the student for the current business semester.  If
+  # it's summer, query both sessions (M and N) as well as the following fall.
+  data['academic'] = {}
+  billable = False
+  if business_semester.sem_type == 'U':
+    year_code = business_semester.year_code
+    query_semesters = [Semester('M%s' % year_code), Semester('N%s' % year_code), Semester('F%s' % year_code)]
+  else:
+    query_semesters = [business_semester]
+  # NOTE: The `enrollmentStatusFlag` provided by the API is 'Y' if the
+  # student's enrollment status code is any of:
+  # - E1: Enrolled
+  # - R1: Conditionally Enrolled
+  # - R3: Eligible to Enroll
+  for semester in query_semesters:
+    endpoint = "%s/student/academic/%s?idType=ANDREW&semesterCode=%s" % (secrets['hostname'], andrewId, semester)
+    academic_response = urllib.request.urlopen(endpoint).read()
+    try:
+      academic_data = json.loads(academic_response.decode('utf-8'))
+      data['academic'][str(semester)] = {
+        'enrolled': (academic_data['enrollmentStatusFlag'] == 'Y'),
+        'graduationSemester': academic_data['graduationSemesterCode']
+      }
+    except:
+      # HTTP 200 with blank response implies that a student record exists, but
+      # has no academic record for the specified semester.
+      data['academic'][str(semester)] = {
+        'enrolled': False,
+        'graduationSemester': None
+      }
+    # A student is considered billable if they are enrolled in any of the
+    # `query_semesters`.
+    billable = billable or data['academic'][str(semester)]['enrolled']
+  data['academic']['billable'] = billable
+  # A student is considered a pending graduate, for our purposes, if the most
+  # recent/current graduation semester code is equivalent to the current
+  # semester.
+  grad_semester = data['academic'][str(query_semesters[-1])]['graduationSemester']
+  if grad_semester is None:
+    data['academic']['pendingGraduate'] = False
+  else:
+    data['academic']['pendingGraduate'] = ( Semester(grad_semester) == business_semester )
+
   # Persist the data for this student to the global cache before returning it.
   students[andrewId] = Student(data)
   return students[andrewId]

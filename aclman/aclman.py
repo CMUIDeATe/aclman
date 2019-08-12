@@ -215,8 +215,6 @@ for bioId in all_bioIds:
     logger.debug("%-8s - %-28s\t%s" % (student.andrewId, student.allNames,
       ','.join(str(x) for x in sections)))
     # Record this student's data and their sections.
-    # TODO: Request explicit API access to student enrollment status, e.g., E1,
-    # G2, R3, etc.
     S3.students[student.andrewId] = student
     S3.student_sections[student.andrewId] = sections
   else:
@@ -300,6 +298,7 @@ logger.info("Generating JSON file to locally cache calculated data at `%s`...." 
 all_data = {}
 for student in S3.students:
   all_data[student] = {
+    'academic': S3.students[student].data['academic'],
     'biographical': S3.students[student].data['biographical'],
     'privileges': coalesced_student_privileges[student],
     'sections': S3.student_sections[student]
