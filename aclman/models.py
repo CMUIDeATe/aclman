@@ -200,6 +200,8 @@ class Student:
       self.allNames = "%s, %s" % (self.lastName, self.firstName)
     self.fullName = "%s, %s" % (self.lastName, self.commonName)
     self.fullDisplayName = "%s %s" % (self.commonName, self.lastName)
+
+    self.billable = data['academic']['billable']
     # TODO: Find out whether `hasHolds` and `holdDescriptions` might ever
     # contain any useful data.
 

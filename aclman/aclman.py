@@ -508,8 +508,6 @@ for privilege_type in all_privilege_types:
           logger.error("  MRBS error while adding member %s!" % andrewId)
 
 
-
-# We also need TODO the following things:
 #   4. Compare with a dump of existing user lists from Zoho/Quartermaster for
 #      Lending Desk privileges, determine diffs, and update Zoho memberships
 #      accordingly.
@@ -517,6 +515,175 @@ for privilege_type in all_privilege_types:
 #          permissions persist even after a student is no longer
 #          contemporaneously enrolled in the course which conferred this
 #          privilege.
+
+# Get the existing group members.
+logger.info("Getting existing Lending Desk memberships from Zoho....")
+zoho_user_data = Zoho.get_users()
+zoho_users = {}
+existing_andrewIds = set()
+for user in zoho_user_data:
+  zoho_users[user['user_aid']] = user
+  existing_andrewIds.add(user['user_aid'])
+
+# Calculate who should be in the group based on privileges AND whether the
+# student is billable.
+logger.info("Calculating new Lending Desk memberships for Zoho....")
+calculated_andrewIds = set()
+for andrewId in sorted(coalesced_student_privileges.keys()):
+  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "lending"]:
+    # NOTE: Do not consider yet whether the student is billable; handle that
+    # below.
+    if privilege.is_current():
+      calculated_andrewIds.add(andrewId)
+
+# Determine differences between current and calculated group membership.
+logger.info("Determining group membership differences....")
+zoho_to_add = set()
+zoho_to_activate = set()
+zoho_to_deactivate = set()
+
+for andrewId in calculated_andrewIds.difference(existing_andrewIds):
+  try:
+    billable = S3.get_student_from_andrewid(andrewId).billable
+  except:
+    billable = False
+  # If not listed in Zoho, add the user as long as they're billable.
+  # NOTE: Since the user is being added due to their enrollment, it is assumed
+  # that their role for Zoho should be "Student".
+  if andrewId not in existing_andrewIds and billable:
+    zoho_to_add.add(andrewId)
+
+# NOTE: Zoho users need not be students, but different roles have different
+# meanings within the Zoho lending application and must be handled accordingly
+# here although ACLMAN's focus is on student enrollment and whether a student
+# is regarded as billable.  In particular, as the Zoho lending application is
+# currently built, the `user_role` parameter must be exactly ONE of:
+# - Student
+# - Staff (meaning a student employee, an operator of the lending application)
+# - Teaching Assistant
+# - CMU Staff
+# - Faculty
+# - Admin
+#
+# Patrons listed as "Student", "Staff", or "Teaching Assistant", when Active in
+# Zoho, are assumed to be billable; that is, they have an active Student
+# Account with the HUB, which will accept charges posted thereto.  As such,
+# these users are eligible to have materials sold directly to them at the
+# Lending Desk and billed to their Student Account.  Of particular note,
+# "Staff" and "Teaching Assistant" users are provisioned access as part of that
+# role, and may or may not have earned lending privileges separately through
+# their own IDeATe enrollment as a "Student".  They are expected to retain such
+# access while they remain a billable student, unless and until it is manually
+# revoked.
+#
+# Patrons listed as "CMU Staff", "Faculty", or "Admin" are assumed to NOT be
+# billable.  As such, late fees are not assessed to Student Accounts for these
+# users and direct sales of materials are prohibited by the lending
+# application.  It is possible, however, that these users may actually be
+# billable for periods when they are simultaneously enrolled as a student (most
+# commonly for "CMU Staff"), in which case they should retain general lending
+# access for the duration that they remain billable.  Membership in these
+# categories is generally provisioned and deprovisioned manually and
+# asymmetrically, and membership audits must be conducted regularly by Admins.
+#
+# TODO: Further work may disentagle the edge cases caused by the actual
+# orthogonality of these roles.  For now, copiously warn by logging an error
+# upon activating or deactivating users with any role other than "Student".
+for andrewId in existing_andrewIds:
+  user = zoho_users[andrewId]
+  try:
+    billable = S3.get_student_from_andrewid(andrewId).billable
+  except:
+    billable = False
+  # If already Inactive, but privilege is calculated as current, reactivate
+  # them as long as they're billable.  But log an error/notice if the prior
+  # role being restored is anything other than "Student".
+  if user['user_status'] == 'Inactive' and andrewId in calculated_andrewIds:
+    # Don't reactivate a blacklisted user.
+    if user['blacklisted']:
+      continue
+    if user['user_role'] == 'Student':
+      if billable:
+        zoho_to_activate.add(andrewId)
+    elif user['user_role'] not in ['Admin', 'Faculty']:
+      if billable:
+        zoho_to_activate.add(andrewId)
+        logger.error("Notice: User '%s' to be activated; role is %s (user is billable)" % (andrewId, user['user_role']))
+    else:
+      # "Admin" and "Faculty" roles need not be billable.  Log an error/notice
+      # when they're activated in this fashion.
+      zoho_to_activate.add(andrewId)
+      logger.error("Notice: User '%s' to be activated; role is %s" % (andrewId, user['user_role']))
+  # If already Active and role is "Staff" or "Teaching Assistant", the user
+  # should generally remain Active as part of that role, regardless of whether
+  # they appear in `calculated_andrewIds` from course enrollment as a student.
+  # So, take special care to ensure the user remains billable and only
+  # deactivate them if they aren't.  Also log an error/notice.
+  elif "Active" in user['user_status'] and user['user_role'] in ['Staff', 'Teaching Assistant']:
+    # Don't deactivate a whitelisted user.
+    if user['whitelisted']:
+      continue
+    if not billable:
+      zoho_to_deactivate.add(andrewId)
+      logger.error("Notice: User '%s' to be deactivated; role is %s (user is not billable)" % (andrewId, user['user_role']))
+  # For other roles, if already Active, but privilege is calculated as not
+  # current, deactivate them if their role is "Student", but not if their role
+  # is "Admin", "CMU Staff", or "Faculty".
+  elif "Active" in user['user_status'] and andrewId not in calculated_andrewIds:
+    # Don't deactivate a whitelisted user.
+    if user['whitelisted']:
+      continue
+    if user['user_role'] == 'Student':
+      zoho_to_deactivate.add(andrewId)
+    else:
+      # Take no action to deactivate "Admin", "CMU Staff", or "Faculty" roles,
+      # as these are manually reviewed periodically.
+      pass
+
+if not args.live:
+  # Since there is presently no development environment for Zoho, take no
+  # action in DEVELOPMENT mode; rather, simply output the calculated
+  # differences.
+  logger.info("Environment is %s; NOT adding/removing Zoho users." % environment)
+  logger.debug("%d members should be deactivated in Zoho user list...." % len(zoho_to_deactivate))
+  for andrewId in sorted(zoho_to_deactivate):
+    logger.debug("  %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+  logger.debug("%d members should be activated in Zoho user list...." % len(zoho_to_activate))
+  for andrewId in sorted(zoho_to_activate):
+    logger.debug("  %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+  logger.debug("%d members should be added to Zoho user list...." % len(zoho_to_add))
+  for andrewId in sorted(zoho_to_add):
+    logger.debug("  %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+else:
+  # In PRODUCTION, add and remove members as determined.
+  logger.info("Deactivating %d members in Zoho user list...." % len(zoho_to_deactivate))
+  for andrewId in sorted(zoho_to_deactivate):
+    try:
+      Zoho.deactivate_user(andrewId)
+      logger.debug("  Deactivated %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+    except:
+      sys.stderr.write("  Zoho error while deactivating member %s!\n" % andrewId)
+      logger.error("  Zoho error while deactivating member %s!" % andrewId)
+  logger.info("Activating %d members in Zoho user list...." % len(zoho_to_activate))
+  for andrewId in sorted(zoho_to_activate):
+    try:
+      Zoho.activate_user(andrewId)
+      logger.debug("  Activated %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+    except:
+      sys.stderr.write("  Zoho error while activating member %s!\n" % andrewId)
+      logger.error("  Zoho error while activating member %s!" % andrewId)
+  logger.info("Adding %d members to Zoho user list...." % len(zoho_to_add))
+  for andrewId in sorted(zoho_to_add):
+    try:
+      Zoho.add_user(andrewId)
+      logger.debug("  Added %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+    except:
+      sys.stderr.write("  Zoho error while adding member %s!\n" % andrewId)
+      logger.error("  Zoho error while adding member %s!" % andrewId)
+
+
+
+# We also need TODO the following things:
 #   5. TODO: Optionally populate WordPress instances with users tied to
 #      rosters. (This is not presently handled by the existing suite of
 #      semi-manual scripts.)

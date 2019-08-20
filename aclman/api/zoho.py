@@ -30,7 +30,7 @@ def get_users():
   try:
     resp = urllib.request.urlopen(req).read()
     resp_data = json.loads(resp.decode('utf-8'))
-    return resp_data
+    return resp_data[secrets['user_form']]
   except urllib.error.HTTPError as e:
     raise e
 
