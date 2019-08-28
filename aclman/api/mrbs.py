@@ -1,5 +1,9 @@
+import datetime
 import subprocess
 import re
+
+from aclman.models import *
+import aclman.api.s3 as S3
 
 secrets = {}
 
@@ -22,18 +26,17 @@ def add_member(roomId, member):
   global secrets
   # First, determine if the user is in the MRBS database at all.
   eppn = "%s@%s" % (member, secrets['domain'])
-  count = execute("SELECT count(id) FROM mrbs.mrbs_users WHERE user_login = \'%s\';" % eppn)
+  count = int( execute("SELECT count(id) FROM mrbs.mrbs_users WHERE user_login = \"%s\";" % eppn) )
   # Add them if they're not.
   if count == 0:
-    execute("INSERT INTO mrbs.mrbs_users user_login, user_pass, user_nicename, user_email, display_name, level, affiliation) VALUES (\'%s\', \'%s\', \'%s\', \'%s\', \'%s\', \'1\', \'C\');" % (eppn, member, member, eppn, NAME))
+    execute("INSERT INTO mrbs.mrbs_users (user_login, user_pass, user_nicename, user_email, display_name, level, affiliation, user_registered) VALUES (\"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"1\", \"C\", \"%s\");" % (eppn, member, member, eppn, S3.get_student_from_andrewid(member).fullDisplayName, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     # NOTE: `user_pass` is not actually used since MRBS login is controlled
     # by Shibboleth.
-    # TODO: Make `display_name` useable.
 
   # Now, provide the permission.
-  execute("INSERT INTO mrbs.mrbs_permissions (user_name, room_id) VALUES (\'%s\', \'%d\');" % (eppn, roomId))
+  execute("INSERT INTO mrbs.mrbs_permissions (user_name, room_id) VALUES (\"%s\", \"%d\");" % (eppn, roomId))
 
 def remove_member(roomId, member):
   global secrets
   eppn = "%s@%s" % (member, secrets['domain'])
-  execute("DELETE FROM mrbs.mrbs_permissions WHERE user_name = \'%s\' AND room_id = \'%d\';" % (eppn, roomId))
+  execute("DELETE FROM mrbs.mrbs_permissions WHERE user_name = \"%s\" AND room_id = \"%d\";" % (eppn, roomId))
