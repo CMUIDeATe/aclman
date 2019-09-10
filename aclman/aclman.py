@@ -55,6 +55,7 @@ Zoho.set_secrets(secrets.zoho_api)
 # Configure logging.
 log_dir = "log"
 log_file = "%s.log" % run_date
+helpers.mkdir_p(log_dir)
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -74,7 +75,8 @@ subprocess.call(["ln", "-sf", log_file, log_dir + "/latest-%s.log" % environment
 if args.live:
   subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
 
-helpers.mkdir_p("output")
+output_dir = "output"
+helpers.mkdir_p(output_dir)
 logger.info("ACLMAN script started: %s" % script_begin_time)
 logger.info("Environment is: %s" % environment)
 
@@ -289,7 +291,7 @@ del all_student_privileges
 #        - TODO: Check diffs between the current version of this data and the
 #          most recently cached version before determining what actions should
 #          be taken on any downstream systems.
-jsondata_dir = "output/jsondata"
+jsondata_dir = "%s/jsondata" % output_dir
 jsondata_file = "data-%s.json" % run_date
 jsondata_path = jsondata_dir + '/' + jsondata_file
 helpers.mkdir_p(jsondata_dir)
@@ -318,7 +320,7 @@ if args.live:
 #        - NOTE: Enrollment data is NOT nominaly needed here, as card expiry
 #          will override when necessary, but it will help reduce file size and
 #          group size.
-keycard_dir = "output/keycard"
+keycard_dir = "%s/keycard" % output_dir
 keycard_file = "keycard-%s.xml" % run_date
 keycard_path = keycard_dir + '/' + keycard_file
 helpers.mkdir_p(keycard_dir)
@@ -690,7 +692,7 @@ else:
 
 
 # As an additional intermediate output, create stripped-down CSV roster files:
-roster_dir = "output/rosters"
+roster_dir = "%s/rosters" % output_dir
 roster_file = "rosters-%s.csv" % run_date
 roster_path = roster_dir + '/' + roster_file
 helpers.mkdir_p(roster_dir)
