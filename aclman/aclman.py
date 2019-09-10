@@ -2,7 +2,7 @@
 
 import datetime
 import logging
-import sys
+import os, sys
 import subprocess
 import csv, json
 import re
@@ -391,6 +391,8 @@ batchfile.close()
 subprocess.call(["sftp", "-b", batchfile_path, "-i", secrets.csgold_util['ssh_key_path'],
   "%s@%s" % (secrets.csgold_util['username'], secrets.csgold_util['fqdn'])],
   stdout=subprocess.DEVNULL)
+# Remove the temp file.
+os.remove(batchfile_path)
 
 # TODO: Compare the just-generated ACL file with the previous version and log
 # the diffs locally.  This will make the reasons for drops easier to determine
