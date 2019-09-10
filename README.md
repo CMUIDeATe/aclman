@@ -41,3 +41,9 @@ python3 -m aclman.aclman
 ```
 
 Add `--live` to run in production.
+
+For production `cron`, this is generally best invoked as:
+
+```
+cd /opt/aclman && python3 -m aclman.aclman --live
+```
