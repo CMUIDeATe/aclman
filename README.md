@@ -19,6 +19,18 @@ cp aclman/secrets/example.py aclman/secrets/production.py
 edit aclman/secrets/{development,production}.py
 ```
 
+To ensure that automatic SFTP connections to the CSGold Util server go through,
+establish the server as a known host for the user running ACLMAN
+by manually initiating an `sftp` connection to
+the host listed in these secrets files as `csgold_util['fqdn']`.
+It doesn't matter if these connections are accepted,
+just that the hosts become known in `~/.ssh/known_hosts`:
+
+```
+sftp csgold-util.example.org
+# Repeat for each environment
+```
+
 ## Usage
 
 From the project root directory, to conduct a dry-run in development
