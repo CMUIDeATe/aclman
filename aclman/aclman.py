@@ -644,6 +644,9 @@ for andrewId in existing_andrewIds:
       # as these are manually reviewed periodically.
       pass
 
+# TODO: Determine whether any preferred names have changed and update Zoho
+# records accordingly.
+
 if not args.live:
   # Since there is presently no development environment for Zoho, take no
   # action in DEVELOPMENT mode; rather, simply output the calculated
