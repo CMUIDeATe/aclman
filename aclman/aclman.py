@@ -631,9 +631,9 @@ for andrewId in existing_andrewIds:
       zoho_to_deactivate.add(andrewId)
       logger.error("Notice: User '%s' to be deactivated; role is %s (user is not billable)" % (andrewId, user['user_role']))
   # For other roles, if already Active, but privilege is calculated as not
-  # current, deactivate them if their role is "Student", but not if their role
-  # is "Admin", "CMU Staff", or "Faculty".
-  elif "Active" in user['user_status'] and andrewId not in calculated_andrewIds:
+  # current or the user is not billable, deactivate them if their role is
+  # "Student", but not if their role is "Admin", "CMU Staff", or "Faculty".
+  elif "Active" in user['user_status'] and (andrewId not in calculated_andrewIds or not billable):
     # Don't deactivate a whitelisted user.
     if user['whitelisted']:
       continue
