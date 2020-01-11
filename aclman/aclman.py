@@ -399,23 +399,24 @@ os.remove(batchfile_path)
 # empirically.
 
 
-#   2. Populate Grouper groups for inclusion in determination of laser cutter
-#      access privileges.  (Most users must also appear in EH&S groups
-#      indicating completion of their "Fire Extinguisher Training" and "Laser
-#      Cutter Safety" modules.)
+#   2. Populate Grouper group for base community privileges.  In particular,
+#      this is an element used in determination of laser cutter access
+#      privileges, although a community role can also be sponsored, earned by
+#      related IDeATe employment, or earned by workshop participation.  (Users
+#      must also complete all required safety trainings for full access.)
 #        - NOTE: Enrollment data is NOT nominaly needed here, as account expiry
 #          will override when necessary.
-laser_group = config.grouper_groups['laser_course']
+base_privileges_group = config.grouper_groups['base_community_privileges']
 
 # Get the existing group members.
-logger.info("Getting existing group memberships for `%s`...." % laser_group)
-existing_andrewIds = Grouper.get_members(laser_group)
+logger.info("Getting existing group memberships for `%s`...." % base_privileges_group)
+existing_andrewIds = Grouper.get_members(base_privileges_group)
 
 # Calculate who should be in the group based on privileges.
-logger.info("Calculating new group memberships for `%s`...." % laser_group)
+logger.info("Calculating new group memberships for `%s`...." % base_privileges_group)
 calculated_andrewIds = set()
 for andrewId in sorted(coalesced_student_privileges.keys()):
-  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "laser_course"]:
+  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "base"]:
     if privilege.is_current():
       calculated_andrewIds.add(andrewId)
 
@@ -425,18 +426,18 @@ grouper_to_del = existing_andrewIds.difference(calculated_andrewIds)
 grouper_to_add = calculated_andrewIds.difference(existing_andrewIds)
 
 # Add and remove members as determined.
-logger.info("Removing %d members from group `%s`...." % (len(grouper_to_del), laser_group))
+logger.info("Removing %d members from group `%s`...." % (len(grouper_to_del), base_privileges_group))
 for andrewId in sorted(grouper_to_del):
   try:
-    Grouper.remove_member(laser_group, andrewId)
+    Grouper.remove_member(base_privileges_group, andrewId)
     logger.debug("  Removed %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
   except urllib.error.HTTPError as e:
     sys.stderr.write("  Grouper error while removing member %s: %s\n" % (andrewId, e))
     logger.error("  Grouper error while removing member %s: %s" % (andrewId, e))
-logger.info("Adding %d members to group `%s`...." % (len(grouper_to_add), laser_group))
+logger.info("Adding %d members to group `%s`...." % (len(grouper_to_add), base_privileges_group))
 for andrewId in sorted(grouper_to_add):
   try:
-    Grouper.add_member(laser_group, andrewId)
+    Grouper.add_member(base_privileges_group, andrewId)
     logger.debug("  Added %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
   except urllib.error.HTTPError as e:
     sys.stderr.write("  Grouper error while adding member %s: %s\n" % (andrewId, e))
@@ -530,11 +531,12 @@ for user in zoho_user_data:
   existing_andrewIds.add(user['user_aid'])
 
 # Calculate who should be in the group based on privileges AND whether the
-# student is billable.
+# student is billable.  Lending is provisioned based on the base community
+# privileges.
 logger.info("Calculating new Lending Desk memberships for Zoho....")
 calculated_andrewIds = set()
 for andrewId in sorted(coalesced_student_privileges.keys()):
-  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "lending"]:
+  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "base"]:
     # NOTE: Do not consider yet whether the student is billable; handle that
     # below.
     if privilege.is_current():

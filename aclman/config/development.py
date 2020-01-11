@@ -9,7 +9,7 @@ csgold_group_mapping = {
 
 # Grouper groups
 grouper_groups = {
-  'laser_course': 'Apps:IDeATe:Permissions:Laser Cutter:Laser cutter courses - ACLMAN TEST'
+  'base_community_privileges': 'Apps:IDeATe:Permissions:Base community privileges - ACLMAN TEST'
 }
 
 # MRBS room mapping
