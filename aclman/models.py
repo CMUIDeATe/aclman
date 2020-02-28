@@ -1,6 +1,8 @@
+import functools
 import datetime
 import calendar
 
+@functools.total_ordering
 class Semester:
   def __init__(self, semester):
     self.semester = semester
@@ -59,7 +61,17 @@ class Semester:
     return calendar.monthcalendar(year, month)[0][calendar.SUNDAY]
 
 
-class Section:
+@functools.total_ordering
+class Purpose:
+  def __eq__(self, other):
+    return self.purpose_sort_order() == other.purpose_sort_order()
+
+  def __lt__(self, other):
+    return self.purpose_sort_order() < other.purpose_sort_order()
+
+
+@functools.total_ordering
+class Section(Purpose):
   def __init__(self, semester, course, section):
     # Convert semester to a Semester object if it is passed, e.g., as a string.
     if isinstance(semester, Semester):
@@ -72,16 +84,10 @@ class Section:
   def __str__(self):
     return "%s-%s-%s" % (self.semester, self.course, self.section)
 
-  def __eq__(self, other):
-    return (self.semester, self.course, self.section) == (other.semester, other.course, other.section)
-
-  def __lt__(self, other):
-    # If the semesters are the same, sort lexically by concatenating course and
+  def purpose_sort_order(self):
+    # Sort Sections chronologically by semester, then lexically by course and
     # section.
-    if self.semester == other.semester:
-      return self.course + '-' + self.section < other.course + '-' + other.section
-    # Otherwise, sort chronologically by semester.
-    return self.semester < other.semester
+    return (0, self.semester, self.course + '-' + self.section)
 
   def __hash__(self):
     return hash((self.semester, self.course, self.section))
