@@ -14,8 +14,8 @@ def set_secrets(s):
   secrets = s
   secrets['hostname'] = "https://creator.zoho.com"
 
-  secrets['user_form'] = "ADD_User"
-  secrets['user_view'] = "USER_INFO"
+  secrets['user_form'] = "New_User_Form"
+  secrets['user_view'] = "Users"
 
 
 def get_users():
