@@ -536,7 +536,10 @@ for user in zoho_user_data:
 logger.info("Calculating new Lending Desk memberships for Zoho....")
 calculated_andrewIds = set()
 for andrewId in sorted(coalesced_student_privileges.keys()):
-  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "base"]:
+  # XXX-Covid: Lending access is temporarily restricted beyond the normal
+  # "base" privilege to the "lending" privilege with special "covid" value,
+  # which is limited only to current, ongoing courses.
+  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "lending" and x.value == "covid"]:
     # NOTE: Do not consider yet whether the student is billable; handle that
     # below.
     if privilege.is_current():

@@ -4,7 +4,11 @@ csgold_group_mapping = {
   'HL A5': '791',
   'HL A10': '790',
   'HL A10A': '789',
-  'HL A31': '1731'
+  'HL A31': '1731',
+  'HL A5 covid': '1657',
+  'HL A10 covid': '1656',
+  'HL A10A covid': '1655',
+  'HL A31 covid': '1732'
 }
 
 # Grouper groups
