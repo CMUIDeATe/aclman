@@ -10,17 +10,19 @@ class Semester:
     if self.sem_type in ['M', 'N', 'U']:
       self.sem_type = 'U'
     self.year_code = self.semester[1:]
+    # Create a normalized semester code:
+    self.semester_normalized = "%s%s" % (self.sem_type, self.year_code)
 
     # Coerce two-digit year from semester code to a full, four-digit year.
     self.year = datetime.datetime.strptime(self.year_code, '%y').year
 
-    # Spring term ends on the Tuesday between 10 and 16 May,
+    # Spring term typically ends on the Tuesday between 10 and 16 May,
     # and starts 120 days earlier:
     if self.sem_type == 'S':
       first_sun = self.__first_sunday_of_month(self.year, 5)
       end_date = datetime.date(self.year, 5, first_sun + 9)
       start_date = end_date - datetime.timedelta(days=120)
-    # Summer term ends on the Friday between 5 and 11 August,
+    # Summer term typically ends on the Friday between 5 and 11 August,
     # and starts 81 days earlier:
     elif self.sem_type == 'U':
       first_sun = self.__first_sunday_of_month(self.year, 8)
@@ -29,7 +31,7 @@ class Semester:
       else:
         end_date = datetime.date(self.year, 8, first_sun + 5)
       start_date = end_date - datetime.timedelta(days=81)
-    # Fall term ends on the Monday between 15 and 21 December,
+    # Fall term typically ends on the Monday between 15 and 21 December,
     # and starts 112 days earlier:
     elif self.sem_type == 'F':
       first_sun = self.__first_sunday_of_month(self.year, 12)
@@ -41,6 +43,14 @@ class Semester:
     # If it's an unknown semester type, something is wrong.
     else:
       raise ValueError("Unknown semester type for '%s'" % semester)
+
+    # Override for special cases:
+    special_cases = { 'S21': ( datetime.date(2021,  2,  1), datetime.date(2021,  5, 18) ),
+                      'U21': ( datetime.date(2021,  5, 21), datetime.date(2021,  8, 13) )
+                    }
+    if self.semester_normalized in special_cases:
+      (start_date, end_date) = special_cases[self.semester_normalized]
+
     # Convert the above dates into full datetimes.
     self.start = datetime.datetime( start_date.year, start_date.month, start_date.day, 0, 0, 0 )
     self.end = datetime.datetime( end_date.year, end_date.month, end_date.day, 23, 59, 59 )
