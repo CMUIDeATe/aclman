@@ -19,6 +19,7 @@ from aclman.cli import CliParser
 import aclman.api.s3 as S3
 import aclman.api.grouper as Grouper
 import aclman.api.mrbs as Mrbs
+import aclman.api.skylab as Skylab
 import aclman.api.zoho as Zoho
 
 
@@ -50,6 +51,7 @@ else:
 S3.set_secrets(secrets.s3_api)
 Grouper.set_secrets(secrets.grouper_api)
 Mrbs.set_secrets(secrets.mrbs_db)
+Skylab.set_secrets(secrets.skylab_api)
 Zoho.set_secrets(secrets.zoho_api)
 
 # Configure logging.
@@ -519,7 +521,7 @@ for privilege_type in all_privilege_types:
 #        - NOTE: Enrollment data is REQUIRED to do this properly, since
 #          permissions persist even after a student is no longer
 #          contemporaneously enrolled in the course which conferred this
-#          privilege.
+#          privilege.  We accomplish this with the calculated `billable` flag.
 
 # Get the existing group members.
 logger.info("Getting existing Lending Desk memberships from Zoho....")
@@ -694,9 +696,76 @@ else:
       logger.error("  Zoho error while adding member %s!" % andrewId)
 
 
+#   5. Provision access to Stratasys Skylab for 3D printing.
+#        - NOTE: Enrollment data is REQUIRED to do this properly, since
+#          permissions persist even after a student is no longer
+#          contemporaneously enrolled in the course which conferred this
+#          privilege.  We accomplish this with the calculated `billable` flag.
+
+# Get a list of existing users.
+# NOTE: This will explicitly exclude those with `approver` or `backend`
+# permissions so that they are excluded from, and thereby not affected by, this
+# calculation.
+logger.info("Getting existing users from Skylab....")
+skylab_user_data = Skylab.get_users()
+skylab_users = {}
+existing_andrewIds = set()
+for user in skylab_user_data:
+  existing_andrewIds.add(user.replace("@andrew.cmu.edu", ""))
+
+# Calculate who should have access based on privileges.
+logger.info("Calculating new users for Skylab....")
+calculated_andrewIds = set()
+for andrewId in sorted(coalesced_student_privileges.keys()):
+  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "3dprint"]:
+    # Only maintain the privilege if the user is billable.
+    try:
+      billable = S3.get_student_from_andrewid(andrewId).billable
+    except:
+      billable = False
+    if privilege.is_current() and billable:
+      calculated_andrewIds.add(andrewId)
+
+# Determine differences between current and calculated ACL.
+logger.info("Determining user list differences....")
+skylab_to_disable = existing_andrewIds.difference(calculated_andrewIds)
+skylab_to_enable = calculated_andrewIds.difference(existing_andrewIds)
+
+if not args.live:
+  # Since there is presently no development environment for Skylab, take no
+  # action in DEVELOPMENT mode; rather, simply output the calculated
+  # differences.
+  logger.info("Environment is %s; NOT adding/removing Skylab users." % environment)
+  logger.debug("%d members should be disabled in Skylab user list...." % len(skylab_to_disable))
+  for andrewId in sorted(skylab_to_disable):
+    logger.debug("  %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+  logger.debug("%d members should be added/enabled in Skylab user list...." % len(skylab_to_enable))
+  for andrewId in sorted(skylab_to_enable):
+    logger.debug("  %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+else:
+  # In PRODUCTION, add and remove members as determined.
+  logger.info("Disabling %d users in Skylab...." % len(skylab_to_disable))
+  for andrewId in sorted(skylab_to_disable):
+    try:
+      Skylab.disable_user(andrewId)
+      logger.debug("  Disabled %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+    except Exception as e:
+      sys.stderr.write("  Skylab error while adding/enabling member %s: %s\n" % (andrewId, e))
+      logger.error("  Skylab error while adding/enabling member %s: %s" % (andrewId, e))
+  logger.info("Adding/Enabling %d users to Skylab...." % len(skylab_to_enable))
+  for andrewId in sorted(skylab_to_enable):
+    try:
+      # add_user() here will prefer to enable a previously disabled user, if one exists.
+      Skylab.add_user(andrewId)
+      logger.debug("  Added/Enabled %s", S3.students[andrewId] if andrewId in S3.students else andrewId)
+    except Exception as e:
+      sys.stderr.write("  Skylab error while adding/enabling member %s: %s\n" % (andrewId, e))
+      logger.error("  Skylab error while adding/enabling member %s: %s" % (andrewId, e))
+
+
 
 # We also need TODO the following things:
-#   5. TODO: Optionally populate WordPress instances with users tied to
+#   6. TODO: Optionally populate WordPress instances with users tied to
 #      rosters. (This is not presently handled by the existing suite of
 #      semi-manual scripts.)
 

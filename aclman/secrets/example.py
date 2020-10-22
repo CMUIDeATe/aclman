@@ -21,6 +21,10 @@ mrbs_db = {
   'username': 'MRBS_DB_USERNAME',
   'password': 'MRBS_DB_PASSWORD'
 }
+# Stratasys Skylab API credentials
+skylab_api = {
+  'api_key': 'SKYLAB_API_KEY'
+}
 # Zoho API credentials
 # Authtoken comes from process described at https://www.zoho.com/creator/help/api/prerequisites/generate-auth-token.html
 zoho_api = {
