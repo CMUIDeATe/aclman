@@ -713,6 +713,11 @@ existing_andrewIds = set()
 for user in skylab_user_data:
   existing_andrewIds.add(user.replace("@andrew.cmu.edu", ""))
 
+# Get the instructor access group members.
+skylab_instructors_group = config.grouper_groups['skylab_instructor_access']
+logger.info("Getting group memberships for `%s`...." % skylab_instructors_group)
+skylab_instructor_andrewIds = Grouper.get_members(skylab_instructors_group)
+
 # Calculate who should have access based on privileges.
 logger.info("Calculating new users for Skylab....")
 calculated_andrewIds = set()
@@ -725,6 +730,9 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
       billable = False
     if privilege.is_current() and billable:
       calculated_andrewIds.add(andrewId)
+# Add in the instructors.
+for andrewId in skylab_instructor_andrewIds:
+  calculated_andrewIds.add(andrewId)
 
 # Determine differences between current and calculated ACL.
 logger.info("Determining user list differences....")

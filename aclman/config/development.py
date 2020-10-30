@@ -13,7 +13,8 @@ csgold_group_mapping = {
 
 # Grouper groups
 grouper_groups = {
-  'base_community_privileges': 'Apps:IDeATe:Permissions:Base community privileges - ACLMAN TEST'
+  'base_community_privileges': 'Apps:IDeATe:Permissions:Base community privileges - ACLMAN TEST',
+  'skylab_instructor_access': 'Apps:IDeATe:Access:Logins:Skylab instructor access'
 }
 
 # MRBS room mapping
