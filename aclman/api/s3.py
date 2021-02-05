@@ -12,9 +12,10 @@ students = {}
 student_sections = {}
 
 business_semester = helpers.business_semester()
+opener = urllib.request.build_opener(urllib.request.BaseHandler()) # default opener
 
 def set_secrets(s):
-  global secrets
+  global secrets, opener
   secrets = s
 
   passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
@@ -22,14 +23,13 @@ def set_secrets(s):
 
   authhandler = urllib.request.HTTPBasicAuthHandler(passman)
   opener = urllib.request.build_opener(authhandler)
-  urllib.request.install_opener(opener)
 
 
 def get_crosslists(section):
-  global secrets
+  global secrets, opener
   endpoint = "%s/course/courses/%s" % (secrets['hostname'], str(section))
   try:
-    resp = urllib.request.urlopen(endpoint).read()
+    resp = opener.open(endpoint).read()
     section_data = json.loads(resp.decode('utf-8'))
     section_crosslists = section_data['crossListedCourses']
   except urllib.error.HTTPError as e:
@@ -38,7 +38,7 @@ def get_crosslists(section):
   return [ Section(crosslist['semesterCode'], crosslist['courseNumber'], crosslist['section']) for crosslist in section_crosslists ]
 
 def get_roster_bioUrls(section):
-  global secrets
+  global secrets, opener
   parameters = {
     'semester': section.semester,
     'courseNumber': section.course,
@@ -47,7 +47,7 @@ def get_roster_bioUrls(section):
   endpoint = "%s/course/courses/roster?%s" % (secrets['hostname'], urllib.parse.urlencode(parameters))
   # NOTE: Sections which do not exist will still return HTTP 200 with an empty
   # `students` element here.
-  section_response = urllib.request.urlopen(endpoint).read()
+  section_response = opener.open(endpoint).read()
   section_data = json.loads(section_response.decode('utf-8'))
   section_roster = section_data['students']
   return section_roster
@@ -74,9 +74,9 @@ def get_student_from_bioid(bioId):
 
 def __translate_bioid_to_andrewid(bioId):
   # NOTE: This could also be memoized.
-  global secrets
+  global secrets, opener
   endpoint = "%s/student/bio/%s?idType=BIO" % (secrets['hostname'], bioId)
-  bio_response = urllib.request.urlopen(endpoint).read()
+  bio_response = opener.open(endpoint).read()
   try:
     bio_data = json.loads(bio_response.decode('utf-8'))
   except:
@@ -85,12 +85,12 @@ def __translate_bioid_to_andrewid(bioId):
   return bio_data['andrewId']
 
 def __fetch_student_data_from_andrewid(andrewId):
-  global secrets, students, business_semester
+  global secrets, opener, students, business_semester
   data = {}
 
   # Get biographical data for the student.
   endpoint = "%s/student/bio/%s?idType=ANDREW" % (secrets['hostname'], andrewId)
-  bio_response = urllib.request.urlopen(endpoint).read()
+  bio_response = opener.open(endpoint).read()
   try:
     bio_data = json.loads(bio_response.decode('utf-8'))
     data['biographical'] = {
@@ -121,7 +121,7 @@ def __fetch_student_data_from_andrewid(andrewId):
   # - R3: Eligible to Enroll
   for semester in query_semesters:
     endpoint = "%s/student/academic/%s?idType=ANDREW&semesterCode=%s" % (secrets['hostname'], andrewId, semester)
-    academic_response = urllib.request.urlopen(endpoint).read()
+    academic_response = opener.open(endpoint).read()
     try:
       academic_data = json.loads(academic_response.decode('utf-8'))
       data['academic'][str(semester)] = {
