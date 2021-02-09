@@ -26,9 +26,15 @@ skylab_api = {
   'api_key': 'SKYLAB_API_KEY'
 }
 # Zoho API credentials
-# Authtoken comes from process described at https://www.zoho.com/creator/help/api/prerequisites/generate-auth-token.html
 zoho_api = {
   'owner': 'ZOHO_OWNER_NAME',
   'application': 'ZOHO_APP_NAME',
-  'authtoken': 'ZOHO_AUTHTOKEN'
+  # Client ID and Client Secret come from https://api-console.zoho.com/
+  # This server-based application is considered a "Self Client"
+  'client_id': '1000.xxxxxxxxxxHF2C6H',
+  'client_secret': 'xxxxxxxxx4f4f7a',
+  # Refresh token is permanent (unless rotated), and comes from the setup
+  # process described in the README under "Zoho API refresh token"
+  # To generate, run the setup script: `python3 -m aclman.setup.zoho`
+  'refresh_token': '1000.3ph66exxxxxxx6ce34.3c4xxxxxxxxxf'
 }

@@ -27,8 +27,9 @@ cp aclman/secrets/example.py aclman/secrets/production.py
 edit aclman/secrets/{development,production}.py
 ```
 
-## Deployment
+## Deployment and setup
 
+### CSGold
 To ensure that automatic SFTP connections to the CSGold Util server go through,
 establish the server as a known host for the user running ACLMAN
 by manually initiating an `sftp` connection to
@@ -39,6 +40,20 @@ just that the hosts become known in `~/.ssh/known_hosts`:
 sftp csgold-util.example.org
 # Repeat for each environment
 ```
+
+### Zoho API refresh token
+1. Log into [https://api-console.zoho.com/]
+2. Select the "Self Client" which represents this server-based application.
+   (If it doesn't exist, create one.)
+3. Under "Client Secret", copy the Client ID and Client Secret, and place them
+   in `aclman/secrets/production.py`
+4. From the project root directory, run the setup script:
+   `python3 -m aclman.setup.zoho`
+    - Confirm the Client ID and Client Secret.
+    - Follow the instructions in the setup script to request a (short-lived)
+      authorization code for the app.
+    - Proceed through the setup script to generate a (permanent) refresh token.
+5. Place the generated refresh token in `aclman/secrets/production.py`
 
 ## Updating
 

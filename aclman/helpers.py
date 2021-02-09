@@ -1,6 +1,9 @@
 import os
 import errno
 import datetime
+import urllib.request
+import urllib.error
+import json
 from json import JSONEncoder
 
 from aclman.models import *
@@ -40,3 +43,18 @@ class CustomJSONEncoder(JSONEncoder):
     if isinstance(obj, Student):
       return {'firstName': obj.firstName, 'preferredName': obj.preferredName, 'lastName': obj.lastName}
     return JSONEncoder.default(self, obj)
+
+class CustomHTTPErrorHandler(urllib.request.HTTPDefaultErrorHandler):
+  def http_error_default(self, req, fp, code, msg, hdrs):
+    if req.host == "creator.zoho.com" and hdrs['Content-Type'].startswith("application/json"):
+      s = b''.join(fp).decode()
+      resp = json.loads(s)
+      # See https://www.zoho.com/creator/help/api/v2/status-codes.html
+      if resp['code'] == 3100: # No records found for the given criteria.
+        raise IndexError
+      else:
+        raise Exception("Zoho error code %d: '%s'" % (resp['code'], resp['message']))
+    else:
+      s = b''.join(fp).decode()
+      resp = json.loads(s)
+    raise urllib.error.HTTPError(req.full_url, code, msg, hdrs, fp)

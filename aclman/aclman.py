@@ -47,12 +47,18 @@ else:
   import aclman.secrets.development as secrets
   environment = "DEVELOPMENT"
 
+# Install a default instrumented URL opener.
+instrumented_opener = urllib.request.build_opener(helpers.CustomHTTPErrorHandler)
+urllib.request.install_opener(instrumented_opener)
+
 # Establish auth to each API.
 S3.set_secrets(secrets.s3_api)
 Grouper.set_secrets(secrets.grouper_api)
 Mrbs.set_secrets(secrets.mrbs_db)
 Skylab.set_secrets(secrets.skylab_api)
 Zoho.set_secrets(secrets.zoho_api)
+# NOTE: Zoho auth tokens are only valid for an hour, so we separately call
+# Zoho.authenticate() closer to when it's needed.
 
 # Configure logging.
 log_dir = "log"
@@ -522,6 +528,10 @@ for privilege_type in all_privilege_types:
 #          permissions persist even after a student is no longer
 #          contemporaneously enrolled in the course which conferred this
 #          privilege.  We accomplish this with the calculated `billable` flag.
+
+# Get a fresh auth token.
+logger.info("Getting Zoho auth token...")
+Zoho.authenticate()
 
 # Get the existing group members.
 logger.info("Getting existing Lending Desk memberships from Zoho....")
