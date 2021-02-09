@@ -62,6 +62,10 @@ A typical user with `sudo` privileges will ordinarily accomplish this with:
 ```
 sudo su aclman -c "cd /opt/aclman ; git pull origin master"
 ```
+or, a bit more robustly:
+```
+sudo su aclman -c "cd /opt/aclman ; git fetch origin ; git reset --hard origin/master"
+```
 
 ## Usage
 
