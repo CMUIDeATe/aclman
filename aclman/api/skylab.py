@@ -18,9 +18,11 @@ def set_secrets(s):
 def get_users():
   global secrets
   # Use the `approver` and `backend` filters to only get regular users without
-  # administrative permissions.
+  # administrative permissions.  Use the `enabled` and `deleted` filters to
+  # only get those remaining who have active accounts on Skylab.
   search_parameters = {
     'search': '@',
+    'enabled': 'true',
     'deleted': 'false',
     'approver': 'false',
     'backend': 'false'
