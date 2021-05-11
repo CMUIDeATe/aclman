@@ -621,7 +621,7 @@ for andrewId in existing_andrewIds:
   # role being restored is anything other than "Student".
   if user['user_status'] == 'Inactive' and andrewId in calculated_andrewIds:
     # Don't reactivate a blacklisted user.
-    if user['blacklisted']:
+    if user['blacklisted'] == 'true':
       continue
     if user['user_role'] == 'Student':
       if billable:
@@ -642,7 +642,7 @@ for andrewId in existing_andrewIds:
   # deactivate them if they aren't.  Also log an error/notice.
   elif "Active" in user['user_status'] and user['user_role'] in ['Staff', 'Teaching Assistant']:
     # Don't deactivate a whitelisted user.
-    if user['whitelisted']:
+    if user['whitelisted'] == 'true':
       continue
     if not billable:
       zoho_to_deactivate.add(andrewId)
@@ -652,7 +652,7 @@ for andrewId in existing_andrewIds:
   # "Student", but not if their role is "Admin", "CMU Staff", or "Faculty".
   elif "Active" in user['user_status'] and (andrewId not in calculated_andrewIds or not billable):
     # Don't deactivate a whitelisted user.
-    if user['whitelisted']:
+    if user['whitelisted'] == 'true':
       continue
     if user['user_role'] == 'Student':
       zoho_to_deactivate.add(andrewId)
