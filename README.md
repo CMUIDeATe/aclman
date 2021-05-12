@@ -60,11 +60,11 @@ sftp csgold-util.example.org
 To pull the latest updates into production, just pull from the repository.
 A typical user with `sudo` privileges will ordinarily accomplish this with:
 ```
-sudo su aclman -c "cd /opt/aclman ; git pull origin master"
+sudo su aclman -c "cd /opt/aclman ; git pull origin main"
 ```
 or, a bit more robustly:
 ```
-sudo su aclman -c "cd /opt/aclman ; git fetch origin ; git reset --hard origin/master"
+sudo su aclman -c "cd /opt/aclman ; git fetch origin ; git reset --hard origin/main"
 ```
 
 ## Usage
