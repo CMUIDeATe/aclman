@@ -112,12 +112,12 @@ def disable_user(andrewId):
 def __search_users(search_parameters):
   global secrets
   num_remaining = __count_users(search_parameters)
+  page_size = 100
   page_num = 0
   users = []
   while num_remaining > 0:
     page_num += 1
-    page_size = min(num_remaining, 100)
-    num_remaining -= page_size
+    num_remaining -= min(num_remaining, page_size)
     parameters = {
       'pageSize': page_size,
       'pageNumber': page_num,
