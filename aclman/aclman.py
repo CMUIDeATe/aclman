@@ -336,7 +336,7 @@ keycard_data = CsGoldData(comment='Generated as \'%s\' by ACLMAN at %s' % (keyca
 
 # Generate the elements for each access privilege.
 for andrewId in sorted(coalesced_student_privileges.keys()):
-  for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "door_access"]:
+  for privilege in coalesced_student_privileges[andrewId]:
     # NOTE: This process will even add old, expired privileges to the file.
     # When they're re-uploaded, such records will live in the patron group for
     # a few hours afterwards before being deleted as expired by the CSGold
@@ -348,14 +348,18 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     # TODO: Request access to such a feature, and/or track the server state to
     # calculate diffs.  This would also have the added benefit that we could
     # avoid re-uploading ANY privilege which hasn't changed.
-    #
-    # NOTE: Don't be too aggressive about cleaning out the patron groups until
-    # it has been determined how many legacy users currently retain ad hoc
-    # privileges in those patron groups, and those have either been ended (if
-    # they're no longer needed) or special-cased in other ways, so they won't
-    # be overwritten.
 
-    groupId = config.csgold_group_mapping[privilege.value]
+    if privilege.key == "base":
+      # Beginning Fall 2021, door access to HL A5 is provisioned to everyone with
+      # the "base" privilege; it is no longer considered a standard classroom.
+      groupId = config.csgold_group_mapping["HL A5"]
+    elif privilege.key == "door_access" and privilege.value in ["HL A10", "HL A10A", "HL A31"]:
+      # Door access to standard classrooms.
+      groupId = config.csgold_group_mapping[privilege.value]
+    else:
+      # This privilege does not confer any door access.
+      continue
+
     start_date = str(privilege.start)
     end_date = str(privilege.end)
     comment = "ACLMAN-%s: %s" % (run_date, ','.join([str(x) for x in privilege.sections]))
