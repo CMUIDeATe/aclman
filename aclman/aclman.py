@@ -6,8 +6,6 @@ import os, sys
 import subprocess
 import csv, json
 import re
-import xml.etree.ElementTree as ET
-import xml.dom.minidom
 import urllib.request
 import urllib.parse
 
@@ -332,12 +330,9 @@ keycard_dir = "%s/keycard" % output_dir
 keycard_file = "keycard-%s.xml" % run_date
 keycard_path = keycard_dir + '/' + keycard_file
 helpers.mkdir_p(keycard_dir)
-logger.info("Generating XML file for CSGold door/keycard ACLs at `%s`...." % keycard_path)
 
-# Create the root elements of the XML file.
-keycard_xml_root = ET.Element('AccessAssignments')
-keycard_comment = ET.Comment('Generated as \'%s\' by ACLMAN at %s' % (keycard_file, datetime.datetime.now()))
-keycard_xml_root.append(keycard_comment)
+logger.info("Generating XML file for CSGold door/keycard ACLs at `%s`...." % keycard_path)
+keycard_data = CsGoldData(comment='Generated as \'%s\' by ACLMAN at %s' % (keycard_file, datetime.datetime.now()))
 
 # Generate the elements for each access privilege.
 for andrewId in sorted(coalesced_student_privileges.keys()):
@@ -359,24 +354,18 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     # privileges in those patron groups, and those have either been ended (if
     # they're no longer needed) or special-cased in other ways, so they won't
     # be overwritten.
-    priv_asgn = ET.SubElement(keycard_xml_root, 'AccessAssignment')
 
-    priv_asgn_andrewid = ET.SubElement(priv_asgn, 'AndrewID')
-    priv_asgn_group = ET.SubElement(priv_asgn, 'GroupNumber')
-    priv_asgn_start = ET.SubElement(priv_asgn, 'StartDate')
-    priv_asgn_end = ET.SubElement(priv_asgn, 'EndDate')
-    priv_asgn_comment = ET.SubElement(priv_asgn, 'Comment')
+    groupId = config.csgold_group_mapping[privilege.value]
+    start_date = str(privilege.start)
+    end_date = str(privilege.end)
+    comment = "ACLMAN-%s: %s" % (run_date, ','.join([str(x) for x in privilege.sections]))
 
-    priv_asgn_andrewid.text = andrewId
-    priv_asgn_group.text = config.csgold_group_mapping[privilege.value]
-    priv_asgn_start.text = str(privilege.start)
-    priv_asgn_end.text = str(privilege.end)
-    priv_asgn_comment.text = "ACLMAN-%s: %s" % (run_date, ','.join([str(x) for x in privilege.sections]))
+    # Append the access assignment.
+    keycard_data.append_access_assignment(andrewId, groupId, start_date, end_date, comment)
 
 # Write out the file.
 with open(keycard_path, 'w') as xmlfile:
-  xmldata = xml.dom.minidom.parseString(ET.tostring(keycard_xml_root))
-  xmlfile.write(xmldata.toprettyxml(indent="  "))
+  xmlfile.write(keycard_data.export_xml())
 xmlfile.close()
 subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest-%s.xml" % environment])
 if args.live:

@@ -1,6 +1,8 @@
 import functools
 import datetime
 import calendar
+import xml.etree.ElementTree as ET
+import xml.dom.minidom
 
 @functools.total_ordering
 class Semester:
@@ -239,3 +241,28 @@ class Student:
       return "%s - %s (%s)" % (self.andrewId, self.fullName, self.firstName)
     else:
       return "%s - %s" % (self.andrewId, self.fullName)
+
+
+class CsGoldData:
+  def __init__(self, comment):
+    self.xml = ET.Element('AccessAssignments')
+    self.xml.append(ET.Comment(comment))
+
+  def append_access_assignment(self, andrewId, groupId, start_date, end_date, comment):
+    priv_asgn = ET.SubElement(self.xml, 'AccessAssignment')
+
+    priv_asgn_andrewid = ET.SubElement(priv_asgn, 'AndrewID')
+    priv_asgn_group = ET.SubElement(priv_asgn, 'GroupNumber')
+    priv_asgn_start = ET.SubElement(priv_asgn, 'StartDate')
+    priv_asgn_end = ET.SubElement(priv_asgn, 'EndDate')
+    priv_asgn_comment = ET.SubElement(priv_asgn, 'Comment')
+
+    priv_asgn_andrewid.text = andrewId
+    priv_asgn_group.text = groupId
+    priv_asgn_start.text = start_date
+    priv_asgn_end.text = end_date
+    priv_asgn_comment.text = comment
+
+  def export_xml(self):
+    xmldata = xml.dom.minidom.parseString(ET.tostring(self.xml))
+    return xmldata.toprettyxml(indent="  ")
