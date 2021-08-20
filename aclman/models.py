@@ -22,6 +22,8 @@ class Semester:
       first_sun = self.__first_sunday_of_month(self.year, 5)
       end_date = datetime.date(self.year, 5, first_sun + 9)
       start_date = end_date - datetime.timedelta(days=120)
+      # NOTE: Sometimes this causes the start date to fall on MLK Day,
+      # in which case classes actually begin the following day.
     # Summer term typically ends on the Friday between 5 and 11 August,
     # and starts 81 days earlier:
     elif self.sem_type == 'U':
@@ -45,8 +47,16 @@ class Semester:
       raise ValueError("Unknown semester type for '%s'" % semester)
 
     # Override for special cases:
-    special_cases = { 'S21': ( datetime.date(2021,  2,  1), datetime.date(2021,  5, 18) ),
-                      'U21': ( datetime.date(2021,  5, 21), datetime.date(2021,  8, 13) )
+    special_cases = { # AY2021 Covid adjustments
+                      'S21': ( datetime.date(2021,  2,  1), datetime.date(2021,  5, 18) ),
+                      'U21': ( datetime.date(2021,  5, 21), datetime.date(2021,  8, 13) ),
+		      # 14-week semesters implemented beginning AY2022
+		      # TODO: See how these patterns stabilize before incorporating above.
+                      # - F21 starts on same schedule, but ends 6 days earlier, on a Tuesday.
+                      # - S22 ends on same schedule, but starts 7 days later (ignoring MLK Day).
+                      # - U22 unaffected.
+                      'F21': ( datetime.date(2021,  8, 30), datetime.date(2021, 12, 14) ),
+                      'S22': ( datetime.date(2022,  1, 17), datetime.date(2022,  5, 10) )
                     }
     if self.semester_normalized in special_cases:
       (start_date, end_date) = special_cases[self.semester_normalized]
