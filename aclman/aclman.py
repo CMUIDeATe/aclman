@@ -232,14 +232,12 @@ for bioId in all_bioIds:
 del all_bioIds
 
 
-# Determine each student's privileges.
-logger.info("Computing privileges for %d students...." % len(S3.students))
+# Determine section-based privileges for each student found in the rosters.
+logger.info("Computing section-based privileges for %d students...." % len(S3.students))
 all_student_privileges = {}
 coalesced_student_privileges = {}
 
-for andrewId in sorted(S3.students.keys()):
-  student = S3.students[andrewId]
-  logger.debug("%-8s - %-28s" % (andrewId, student.allNames))
+for andrewId in S3.students:
   all_student_privileges[andrewId] = {}
 
   for section in S3.student_sections[andrewId]:
@@ -251,7 +249,67 @@ for andrewId in sorted(S3.students.keys()):
       else:
         all_student_privileges[andrewId][privilege_type] = [privilege]
 
-  # Coalesce privileges of the same type.
+# Determine and add in group-based privileges.
+# NOTE: The Grouper group which specifies laser cutter door access is partially
+# dependent on other Grouper groups such as the one used for the base community
+# privilege, which is not recalculated until later in this script.  As the
+# laser cutter group calculations are done via set arithmetic directly in
+# Grouper, this creates a bit of a circular dependency.  In the immediate-term,
+# this is not a major issue, though, as it only means that the provisioning of
+# door access will lag, at most, one nightly ACLMAN run behind login access.
+# TODO: Rethink how the laser cutter access groups are managed, possibly by
+# bringing the BioRAFT and training checks into ACLMAN.  Although this would
+# not sync, say, login access quite so quickly to Active Directory as the
+# current Grouper-based implementation, it would be more coherent with these
+# door access control policies.
+laser_door_access_group = config.grouper_groups['laser_cutter_door_access']
+logger.info("Getting existing group memberships for `%s`...." % laser_door_access_group)
+laser_andrewIds = Grouper.get_members(laser_door_access_group)
+
+logger.info("Computing group-based privileges for %d users in `%s`...." % (len(laser_andrewIds), laser_door_access_group))
+# Grouper doesn't record when these privileges were earned, so consider the
+# privilege earned 1 day ago and valid through 14 days from now.  This will
+# create a "rolling window" that will be updated nightly, and will cause any
+# stale privileges to expire relatively soon.
+privilege_start = ( script_begin_time - datetime.timedelta(days=1) ).strftime("%Y-%m-%d %H:%M:%S")
+privilege_end = ( script_begin_time + datetime.timedelta(days=14) ).strftime("%Y-%m-%d %H:%M:%S")
+privilege = Privilege(PrivilegeType('door_access', 'HL A5B'), privilege_start, privilege_end, ['laser-access'])
+privilege_type = privilege.privilege_type
+
+for andrewId in laser_andrewIds:
+  # Load student data for any student we haven't seen yet.
+  # TODO: Abstract this into helper functions of a new singleton class that
+  # manages privileges so this need not be so dependent on the "student-ness"
+  # of entries.
+  if andrewId not in all_student_privileges:
+    try:
+      student = S3.get_student_from_andrewid(andrewId)
+    except KeyError:
+      # TODO: Fill in non-student data from LDAP.
+      # NOTE: Some faculty and staff do have student records nonetheless.
+      logger.info("  SKIPPING %-8s - (no student record)" % andrewId)
+      continue
+    logger.info("  Adding   %-8s - %-28s" % (andrewId, student.allNames))
+    S3.students[andrewId] = student
+    # These students have no sections, but the array is needed for JSON export.
+    S3.student_sections[andrewId] = []
+    all_student_privileges[andrewId] = {}
+
+  # Assign the privilege.
+  if privilege_type in all_student_privileges[andrewId]:
+    all_student_privileges[andrewId][privilege_type].append(privilege)
+  else:
+    all_student_privileges[andrewId][privilege_type] = [privilege]
+
+del privilege
+del privilege_type
+
+# Coalesce privileges of the same type.
+logger.info("Coalescing student privileges....")
+for andrewId in sorted(all_student_privileges.keys()):
+  student = S3.students[andrewId]
+  logger.debug("%-8s - %-28s" % (andrewId, student.allNames))
+
   # NOTE: This returns a single privilege for each type, with the maximal time
   # range currently valid, if any; otherwise, the next future range if one
   # exists; otherwise, one in the recent past.
@@ -353,8 +411,8 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
       # Beginning Fall 2021, door access to HL A5 is provisioned to everyone with
       # the "base" privilege; it is no longer considered a standard classroom.
       groupId = config.csgold_group_mapping["HL A5"]
-    elif privilege.key == "door_access" and privilege.value in ["HL A10", "HL A10A", "HL A31"]:
-      # Door access to standard classrooms.
+    elif privilege.key == "door_access" and privilege.value in ["HL A5B", "HL A10", "HL A10A", "HL A31"]:
+      # Door access to standard classrooms and laser cutter access.
       groupId = config.csgold_group_mapping[privilege.value]
     else:
       # This privilege does not confer any door access.

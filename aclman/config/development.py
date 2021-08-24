@@ -2,6 +2,7 @@
 # Maps a `door_access` privilege value (room number) to a CSGold patron group number.
 csgold_group_mapping = {
   'HL A5': '791',
+  'HL A5B': '2034',
   'HL A10': '790',
   'HL A10A': '789',
   'HL A31': '1731',
@@ -14,6 +15,7 @@ csgold_group_mapping = {
 # Grouper groups
 grouper_groups = {
   'base_community_privileges': 'Apps:IDeATe:Permissions:Base community privileges - ACLMAN TEST',
+  'laser_cutter_door_access': 'Apps:IDeATe:Permissions:Laser Cutter:Eligibility:A5B door access',
   'skylab_instructor_access': 'Apps:IDeATe:Access:Logins:Skylab:Instructor access',
   'skylab_supplemental_access': 'Apps:IDeATe:Access:Logins:Skylab:Temporary supplemental access'
 }
