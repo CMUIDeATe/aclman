@@ -250,59 +250,73 @@ for andrewId in S3.students:
         all_student_privileges[andrewId][privilege_type] = [privilege]
 
 # Determine and add in group-based privileges.
-# NOTE: The Grouper group which specifies laser cutter door access is partially
-# dependent on other Grouper groups such as the one used for the base community
-# privilege, which is not recalculated until later in this script.  As the
-# laser cutter group calculations are done via set arithmetic directly in
-# Grouper, this creates a bit of a circular dependency.  In the immediate-term,
-# this is not a major issue, though, as it only means that the provisioning of
-# door access will lag, at most, one nightly ACLMAN run behind login access.
-# TODO: Rethink how the laser cutter access groups are managed, possibly by
-# bringing the BioRAFT and training checks into ACLMAN.  Although this would
-# not sync, say, login access quite so quickly to Active Directory as the
-# current Grouper-based implementation, it would be more coherent with these
-# door access control policies.
-laser_door_access_group = config.grouper_groups['laser_cutter_door_access']
-logger.info("Getting existing group memberships for `%s`...." % laser_door_access_group)
-laser_andrewIds = Grouper.get_members(laser_door_access_group)
+# NOTE: The Grouper groups which specify these privileges are partially
+# dependent on other groups which are not recalculated until later in this
+# script.  Specifically:
+#   - Laser cutter door access is dependent, in part, on the 'base' community
+#     privilege.
+# Each of these creates a bit of a circular dependency, especially for the more
+# complex laser cutter group calculations, which are done via set arithmetic
+# directly in Grouper.  In the immediate-term, this is not a major issue,
+# though, as it only means that the provisioning of door access will lag, at
+# most, one nightly ACLMAN run behind the corresponding login access (to either
+# the laser cutter workstations or to Stratasys Skylab).
+# TODO: Rethink how these access groups are managed.  For laser cutter access,
+# this could possibly entail bringing the BioRAFT and training checks directly
+# into ACLMAN.  Although this would not sync, say, workstation login access
+# quite so quickly to Active Directory as the current Grouper-based
+# implementation, it would be more coherent with these door access control
+# policies.
+group_access_defs = [
+  {
+    'grouper_group': 'laser_cutter_door_access',
+    'privilege_type': PrivilegeType('door_access', 'HL A5B'),
+    'tag': 'laser-access'
+  }
+]
 
-logger.info("Computing group-based privileges for %d users in `%s`...." % (len(laser_andrewIds), laser_door_access_group))
-# Grouper doesn't record when these privileges were earned, so consider the
-# privilege earned 1 day ago and valid through 14 days from now.  This will
-# create a "rolling window" that will be updated nightly, and will cause any
-# stale privileges to expire relatively soon.
-privilege_start = ( script_begin_time - datetime.timedelta(days=1) ).strftime("%Y-%m-%d %H:%M:%S")
-privilege_end = ( script_begin_time + datetime.timedelta(days=14) ).strftime("%Y-%m-%d %H:%M:%S")
-privilege = Privilege(PrivilegeType('door_access', 'HL A5B'), privilege_start, privilege_end, ['laser-access'])
-privilege_type = privilege.privilege_type
+for group_access_def in group_access_defs:
+  access_group = config.grouper_groups[group_access_def['grouper_group']]
+  logger.info("Getting existing group memberships for `%s`...." % access_group)
+  group_andrewIds = Grouper.get_members(access_group)
 
-for andrewId in laser_andrewIds:
-  # Load student data for any student we haven't seen yet.
-  # TODO: Abstract this into helper functions of a new singleton class that
-  # manages privileges so this need not be so dependent on the "student-ness"
-  # of entries.
-  if andrewId not in all_student_privileges:
-    try:
-      student = S3.get_student_from_andrewid(andrewId)
-    except KeyError:
-      # TODO: Fill in non-student data from LDAP.
-      # NOTE: Some faculty and staff do have student records nonetheless.
-      logger.info("  SKIPPING %-8s - (no student record)" % andrewId)
-      continue
-    logger.info("  Adding   %-8s - %-28s" % (andrewId, student.allNames))
-    S3.students[andrewId] = student
-    # These students have no sections, but the array is needed for JSON export.
-    S3.student_sections[andrewId] = []
-    all_student_privileges[andrewId] = {}
+  logger.info("Computing group-based privileges for %d users in `%s`...." % (len(group_andrewIds), access_group))
+  # Grouper doesn't record when these privileges were earned, so consider the
+  # privilege earned 1 day ago and valid through 14 days from now.  This will
+  # create a "rolling window" that will be updated nightly, and will cause any
+  # stale privileges to expire relatively soon.
+  privilege_start = ( script_begin_time - datetime.timedelta(days=1) ).strftime("%Y-%m-%d %H:%M:%S")
+  privilege_end = ( script_begin_time + datetime.timedelta(days=14) ).strftime("%Y-%m-%d %H:%M:%S")
+  privilege = Privilege(group_access_def['privilege_type'], privilege_start, privilege_end, [group_access_def['tag']])
+  privilege_type = privilege.privilege_type
 
-  # Assign the privilege.
-  if privilege_type in all_student_privileges[andrewId]:
-    all_student_privileges[andrewId][privilege_type].append(privilege)
-  else:
-    all_student_privileges[andrewId][privilege_type] = [privilege]
+  for andrewId in group_andrewIds:
+    # Load student data for any student we haven't seen yet.
+    # TODO: Abstract this into helper functions of a new singleton class that
+    # manages privileges so this need not be so dependent on the "student-ness"
+    # of entries.
+    if andrewId not in all_student_privileges:
+      try:
+        student = S3.get_student_from_andrewid(andrewId)
+      except KeyError:
+        # TODO: Fill in non-student data from LDAP.
+        # NOTE: Some faculty and staff do have student records nonetheless.
+        logger.info("  SKIPPING %-8s - (no student record)" % andrewId)
+        continue
+      logger.info("  Adding   %-8s - %-28s" % (andrewId, student.allNames))
+      S3.students[andrewId] = student
+      # These students have no sections, but the array is needed for JSON export.
+      S3.student_sections[andrewId] = []
+      all_student_privileges[andrewId] = {}
 
-del privilege
-del privilege_type
+    # Assign the privilege.
+    if privilege_type in all_student_privileges[andrewId]:
+      all_student_privileges[andrewId][privilege_type].append(privilege)
+    else:
+      all_student_privileges[andrewId][privilege_type] = [privilege]
+
+  del privilege
+  del privilege_type
 
 # Coalesce privileges of the same type.
 logger.info("Coalescing student privileges....")
