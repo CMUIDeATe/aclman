@@ -56,9 +56,11 @@ class Semester:
 		      # TODO: See how these patterns stabilize before incorporating above.
                       # - F21 starts on same schedule, but ends 6 days earlier, on a Tuesday.
                       # - S22 ends on same schedule, but starts 7 days later (ignoring MLK Day).
-                      # - U22 unaffected.
                       'F21': ( datetime.date(2021,  8, 30), datetime.date(2021, 12, 14) ),
-                      'S22': ( datetime.date(2022,  1, 17), datetime.date(2022,  5, 10) )
+                      'S22': ( datetime.date(2022,  1, 17), datetime.date(2022,  5, 10) ),
+                      # Juneteenth and Summer Break implemented beginning AY2022
+                      # - U22 starts on same schedule, but ends 10 days later, on a Monday.
+                      'U22': ( datetime.date(2022,  5, 16), datetime.date(2022,  8, 15) )
                     }
     if self.semester_normalized in special_cases:
       (start_date, end_date) = special_cases[self.semester_normalized]
