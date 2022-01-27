@@ -425,7 +425,7 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
       # Beginning Fall 2021, door access to HL A5 is provisioned to everyone with
       # the "base" privilege; it is no longer considered a standard classroom.
       groupId = config.csgold_group_mapping["HL A5"]
-    elif privilege.key == "door_access" and privilege.value in ["HL A5B", "HL A10", "HL A10A", "HL A31"]:
+    elif privilege.key == "door_access" and privilege.value in ["HL A5B", "HL A10", "HL A10A", "HL A31", "HL A4 covid"]:
       # Door access to standard classrooms and laser cutter access.
       groupId = config.csgold_group_mapping[privilege.value]
     else:

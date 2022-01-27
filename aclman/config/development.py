@@ -1,11 +1,13 @@
 # CSGold group mapping
 # Maps a `door_access` privilege value (room number) to a CSGold patron group number.
 csgold_group_mapping = {
+  'HL A4': '2074',
   'HL A5': '791',
   'HL A5B': '2034',
   'HL A10': '790',
   'HL A10A': '789',
   'HL A31': '1731',
+  'HL A4 covid': '2075',
   'HL A5 covid': '1657',
   'HL A10 covid': '1656',
   'HL A10A covid': '1655',
@@ -23,6 +25,7 @@ grouper_groups = {
 # MRBS room mapping
 # Maps a `room_reservation` privilege value (room number) to a MRBS room ID.
 mrbs_room_mapping = {
+  'HL A4': 70,
   'HL A5': 42,
   'HL A10': 60,
   'HL A10A': 56,
