@@ -787,7 +787,10 @@ for user in skylab_user_data:
 
 calculated_andrewIds = set()
 # Start by getting the overriding ACLs for instructor and supplemental access.
-groups = [ config.grouper_groups['skylab_instructor_access'], config.grouper_groups['skylab_supplemental_access'] ]
+groups = [ config.grouper_groups['skylab_instructor_access'],
+           config.grouper_groups['skylab_supplemental_access'],
+           config.grouper_groups['skylab_tech_advisor_access']
+         ]
 for group in groups:
   logger.info("Getting override ACL group memberships for `%s`...." % group)
   for andrewId in Grouper.get_members(group):

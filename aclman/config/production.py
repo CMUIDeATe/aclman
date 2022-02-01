@@ -19,7 +19,8 @@ grouper_groups = {
   'base_community_privileges': 'Apps:IDeATe:Permissions:Base community privileges',
   'laser_cutter_door_access': 'Apps:IDeATe:Permissions:Laser Cutter:Eligibility:A5B door access',
   'skylab_instructor_access': 'Apps:IDeATe:Access:Logins:Skylab:Instructor access',
-  'skylab_supplemental_access': 'Apps:IDeATe:Access:Logins:Skylab:Temporary supplemental access'
+  'skylab_supplemental_access': 'Apps:IDeATe:Access:Logins:Skylab:Temporary supplemental access',
+  'skylab_tech_advisor_access': 'Apps:IDeATe:Access:Logins:Skylab:Tech Advisor access'
 }
 
 # MRBS room mapping
