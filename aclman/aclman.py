@@ -477,8 +477,10 @@ os.remove(batchfile_path)
 #      privileges, although a community role can also be sponsored, earned by
 #      related IDeATe employment, or earned by workshop participation.  (Users
 #      must also complete all required safety trainings for full access.)
-#        - NOTE: Enrollment data is NOT nominaly needed here, as account expiry
-#          will override when necessary.
+#        - NOTE: Enrollment data is NEEDED here, as long-gone/deleted users are
+#          routinely purged from Grouper and, for performance reasons there, we
+#          aren't permitted to add them back (nor should we want to).  We
+#          accomplish this with the calculated `billable` flag.
 base_privileges_group = config.grouper_groups['base_community_privileges']
 
 # Get the existing group members.
@@ -489,6 +491,13 @@ existing_andrewIds = Grouper.get_members(base_privileges_group)
 logger.info("Calculating new group memberships for `%s`...." % base_privileges_group)
 calculated_andrewIds = set()
 for andrewId in sorted(coalesced_student_privileges.keys()):
+  try:
+    billable = S3.get_student_from_andrewid(andrewId).billable
+  except:
+    billable = False
+  # Don't include students who aren't billable.
+  if not billable:
+    continue
   for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "base"]:
     if privilege.is_current():
       calculated_andrewIds.add(andrewId)
