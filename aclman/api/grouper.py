@@ -26,7 +26,11 @@ def get_members(groupId):
       subject_data = group_data['WsGetMembersLiteResult']['wsSubjects']
     except KeyError:
       subject_data = []
-    return { x['id'] for x in subject_data }
+    # NOTE: subject_data contains elements with `id` values that are merely
+    # `entityId`s for other groups which have direct or indirect membership in
+    # the group.  Filter this on `sourceId` so as to only return the underlying
+    # users.
+    return { x['id'] for x in subject_data if x['sourceId'] != 'g:gsa' }
   except urllib.error.HTTPError as e:
     sys.stderr.write("Grouper error: %s\n" % e)
     return set()
