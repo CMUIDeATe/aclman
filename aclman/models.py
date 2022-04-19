@@ -52,15 +52,24 @@ class Semester:
     special_cases = { # AY2021 Covid adjustments
                       'S21': ( datetime.date(2021,  2,  1), datetime.date(2021,  5, 18) ),
                       'U21': ( datetime.date(2021,  5, 21), datetime.date(2021,  8, 13) ),
-		      # 14-week semesters implemented beginning AY2022
-		      # TODO: See how these patterns stabilize before incorporating above.
+                      # 14-week semesters implemented beginning AY2022
                       # - F21 starts on same schedule, but ends 6 days earlier, on a Tuesday.
                       # - S22 ends on same schedule, but starts 7 days later (ignoring MLK Day).
                       'F21': ( datetime.date(2021,  8, 30), datetime.date(2021, 12, 14) ),
                       'S22': ( datetime.date(2022,  1, 17), datetime.date(2022,  5, 10) ),
-                      # Juneteenth and Summer Break implemented beginning AY2022
+                      # Juneteenth and Summer Break implemented for AY2022
                       # - U22 starts on same schedule, but ends 10 days later, on a Monday.
-                      'U22': ( datetime.date(2022,  5, 16), datetime.date(2022,  8, 15) )
+                      'U22': ( datetime.date(2022,  5, 16), datetime.date(2022,  8, 15) ),
+                      # Fall break implemented beginning AY2023 restores
+                      # original start/end pattern for F22.
+                      # Commencement moved a week earlier in AY2023
+                      # - S23 ends 7 days earlier.
+                      # - U23 starts and ends 7 days earlier.  Summer Break
+                      #   removed in AY2023 restores original length
+                      #   (Juneteenth retained).
+                      # TODO: See how spring/summer patterns stabilize before incorporating above.
+                      'S23': ( datetime.date(2023,  1, 16), datetime.date(2023,  5,  9) ),
+                      'U23': ( datetime.date(2023,  5, 15), datetime.date(2023,  8,  4) )
                     }
     if self.semester_normalized in special_cases:
       (start_date, end_date) = special_cases[self.semester_normalized]
