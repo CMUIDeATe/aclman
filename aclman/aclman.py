@@ -421,11 +421,13 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     # calculate diffs.  This would also have the added benefit that we could
     # avoid re-uploading ANY privilege which hasn't changed.
 
+    standard_door_provisioning = ["HL A5B", "HL A10", "HL A10A", "HL A31",
+      "HL A5 summer", "HL A10 summer", "HL A10A summer"]
     if privilege.key == "base":
       # Beginning Fall 2021, door access to HL A5 is provisioned to everyone with
       # the "base" privilege; it is no longer considered a standard classroom.
       groupId = config.csgold_group_mapping["HL A5"]
-    elif privilege.key == "door_access" and privilege.value in ["HL A5B", "HL A10", "HL A10A", "HL A31", "HL A4 covid"]:
+    elif privilege.key == "door_access" and privilege.value in standard_door_provisioning:
       # Door access to standard classrooms and laser cutter access.
       groupId = config.csgold_group_mapping[privilege.value]
     else:
