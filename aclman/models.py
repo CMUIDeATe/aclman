@@ -204,7 +204,7 @@ class Privilege:
     sections = a.sections + b.sections
     # If they're considered equal, just combine the sections:
     if a == b:
-      return Privilege(a.privilege_type, a.start, a.end, sections)
+      return Privilege(a.privilege_type, str(a.start), str(a.end), sections)
     # If periods overlap (or are 1 second apart), simply combine them:
     if b.start <= a.end + datetime.timedelta(seconds=1):
       return Privilege(a.privilege_type, str(min(a.start, b.start)), str(max(a.end, b.end)), sections)
