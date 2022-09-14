@@ -421,7 +421,7 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     # calculate diffs.  This would also have the added benefit that we could
     # avoid re-uploading ANY privilege which hasn't changed.
 
-    standard_door_provisioning = ["HL A5B", "HL A10", "HL A10A", "HL A31",
+    standard_door_provisioning = ["HL A4", "HL A5B", "HL A10", "HL A10A", "HL A31",
       "HL A5 summer", "HL A10 summer", "HL A10A summer"]
     if privilege.key == "base":
       # Beginning Fall 2021, door access to HL A5 is provisioned to everyone with
