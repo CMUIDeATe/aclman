@@ -29,8 +29,10 @@ class Semester:
         start_date = end_date - datetime.timedelta(days=120)
       else:
         start_date = end_date - datetime.timedelta(days=113)
-      # NOTE: Sometimes this causes the start date to fall on MLK Day,
-      # in which case classes actually begin the following day.
+      # Sometimes this calculation causes the start date to fall on MLK Day, in
+      # which case classes actually begin the following day.
+      if start_date == self.__mlk_day():
+        start_date += datetime.timedelta(days=1)
     # SUMMER TERM - hinges on start date
     # Typically starts on the Monday which is 1 day after Commencement.
     # - Through U20, term ends on the Friday which is 81 days later (12-week term).
@@ -102,6 +104,14 @@ class Semester:
   def __first_sunday_of_month(self, year, month):
     return calendar.monthcalendar(year, month)[0][calendar.SUNDAY]
 
+  # MLK Day for this year
+  def __mlk_day(self):
+    first_sun = self.__first_sunday_of_month(self.year, 1)
+    # The third Monday in January.
+    if first_sun == 7:
+      return datetime.date(self.year, 1, first_sun + 8)
+    else:
+      return datetime.date(self.year, 1, first_sun + 15)
   # Commencement date for this year
   def __commencement(self):
     first_sun = self.__first_sunday_of_month(self.year, 5)
