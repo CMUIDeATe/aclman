@@ -18,58 +18,67 @@ class Semester:
     # Coerce two-digit year from semester code to a full, four-digit year.
     self.year = datetime.datetime.strptime(self.year_code, '%y').year
 
-    # Spring term typically ends on the Tuesday between 10 and 16 May,
-    # and starts 120 days earlier:
+    # SPRING TERM - hinges on end date
+    # Typically ends on the Tuesday which is 5 days prior to Commencement.
+    # - Through S20, term starts on the Monday which is 120 days earlier (15-week term plus Spring Break).
+    # - S21 is a special case (see below).
+    # - From S22, term starts on the Monday which is 113 days earlier (14-week term plus Spring Break).
     if self.sem_type == 'S':
-      first_sun = self.__first_sunday_of_month(self.year, 5)
-      end_date = datetime.date(self.year, 5, first_sun + 9)
-      start_date = end_date - datetime.timedelta(days=120)
+      end_date = self.__commencement() - datetime.timedelta(days=5)
+      if self.year <= 2020:
+        start_date = end_date - datetime.timedelta(days=120)
+      else:
+        start_date = end_date - datetime.timedelta(days=113)
       # NOTE: Sometimes this causes the start date to fall on MLK Day,
       # in which case classes actually begin the following day.
-    # Summer term typically ends on the Friday between 5 and 11 August,
-    # and starts 81 days earlier:
+    # SUMMER TERM - hinges on start date
+    # Typically starts on the Monday which is 1 day after Commencement.
+    # - Through U20, term ends on the Friday which is 81 days later (12-week term).
+    # - U21 and U22 are special cases (see below).
+    # - From U23, term ends on the Friday which is 88 days later (12-week term plus Summer Break).
     elif self.sem_type == 'U':
-      first_sun = self.__first_sunday_of_month(self.year, 8)
-      if first_sun == 7:
-        end_date = datetime.date(self.year, 8, first_sun - 2)
+      start_date = self.__commencement() + datetime.timedelta(days=1)
+      if self.year <= 2021:
+        end_date = start_date + datetime.timedelta(days=81)
       else:
-        end_date = datetime.date(self.year, 8, first_sun + 5)
-      start_date = end_date - datetime.timedelta(days=81)
-    # Fall term typically ends on the Monday between 15 and 21 December,
-    # and starts 112 days earlier:
+        end_date = start_date + datetime.timedelta(days=88)
+    # FALL TERM - hinges on start date
+    # Typically starts on the Monday between 25 and 31 August.
+    # - Through F20, term ends on the Monday which is 112 days later (15-week term).
+    # - F21 is a special case (see below).
+    # - From F22, term ends on the Monday which is 112 days later (14-week term plus Fall Break).
     elif self.sem_type == 'F':
-      first_sun = self.__first_sunday_of_month(self.year, 12)
-      if first_sun == 7:
-        end_date = datetime.date(self.year, 12, first_sun + 8)
+      first_sun = self.__first_sunday_of_month(self.year, 8)
+      if first_sun <= 2:
+        start_date = datetime.date(self.year, 8, first_sun + 29)
       else:
-        end_date = datetime.date(self.year, 12, first_sun + 15)
-      start_date = end_date - datetime.timedelta(days=112)
+        start_date = datetime.date(self.year, 8, first_sun + 22)
+      end_date = start_date + datetime.timedelta(days=112)
     # If it's an unknown semester type, something is wrong.
     else:
       raise ValueError("Unknown semester type for '%s'" % semester)
 
     # Override for special cases:
-    special_cases = { # AY2021 Covid adjustments
+    special_cases = { # S21 Covid adjustments introduce a 14-week semester,
+		      # remove Spring Break, and shift Commencement 7 days
+		      # later.  This shifts the start 21 days later than usual,
+		      # and the end 7 days later.
                       'S21': ( datetime.date(2021,  2,  1), datetime.date(2021,  5, 18) ),
+		      # U21 Covid adjustments shift Commencement, and thus the
+		      # entire term, 7 days later; however, the simultaneous
+		      # introduction of the Juneteenth holiday (observed on a
+		      # Friday) moves the start of the term to the preceeding
+		      # Friday, only 4 days later than usual.
                       'U21': ( datetime.date(2021,  5, 21), datetime.date(2021,  8, 13) ),
-                      # 14-week semesters implemented beginning AY2022
-                      # - F21 starts on same schedule, but ends 6 days earlier, on a Tuesday.
-                      # - S22 ends on same schedule, but starts 7 days later (ignoring MLK Day).
+		      # F21 introduces a more permanent 14-week semester but
+		      # not a Fall Break.  This would result in the term ending
+		      # 7 days earlier than usual, but exams extend one day to
+		      # the following Tuesday, only 6 days earlier than usual.
                       'F21': ( datetime.date(2021,  8, 30), datetime.date(2021, 12, 14) ),
-                      'S22': ( datetime.date(2022,  1, 17), datetime.date(2022,  5, 10) ),
-                      # Juneteenth and Summer Break implemented for AY2022
-                      # - U22 starts on same schedule, but ends 10 days later, on a Monday.
-                      'U22': ( datetime.date(2022,  5, 16), datetime.date(2022,  8, 15) ),
-                      # Fall break implemented beginning AY2023 restores
-                      # original start/end pattern for F22.
-                      # Commencement moved a week earlier in AY2023
-                      # - S23 ends 7 days earlier.
-                      # - U23 starts and ends 7 days earlier.  Summer Break
-                      #   removed in AY2023 restores original length
-                      #   (Juneteenth retained).
-                      # TODO: See how spring/summer patterns stabilize before incorporating above.
-                      'S23': ( datetime.date(2023,  1, 16), datetime.date(2023,  5,  9) ),
-                      'U23': ( datetime.date(2023,  5, 15), datetime.date(2023,  8,  4) )
+		      # U22 has all holidays (Memorial Day, Juneteenth,
+		      # Independence Day) observed on Mondays, requiring the
+		      # term to extend to the following Monday.
+                      'U22': ( datetime.date(2022,  5, 16), datetime.date(2022,  8, 15) )
                     }
     if self.semester_normalized in special_cases:
       (start_date, end_date) = special_cases[self.semester_normalized]
@@ -93,6 +102,15 @@ class Semester:
   def __first_sunday_of_month(self, year, month):
     return calendar.monthcalendar(year, month)[0][calendar.SUNDAY]
 
+  # Commencement date for this year
+  def __commencement(self):
+    first_sun = self.__first_sunday_of_month(self.year, 5)
+    # Beginning 2023, the second Sunday in May.
+    if self.year >= 2023:
+      return datetime.date(self.year, 5, first_sun + 7)
+    # Through 2022, the third Sunday in May.
+    else:
+      return datetime.date(self.year, 5, first_sun + 14)
 
 @functools.total_ordering
 class Purpose:
