@@ -18,6 +18,7 @@ grouper_api = {
 }
 # MRBS database credentials
 mrbs_db = {
+  'hostname': 'mrbs-db.example.org',
   'username': 'MRBS_DB_USERNAME',
   'password': 'MRBS_DB_PASSWORD'
 }

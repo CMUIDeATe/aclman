@@ -10,7 +10,6 @@ secrets = {}
 def set_secrets(s):
   global secrets
   secrets = s
-  secrets['hostname'] = 'localhost'
   secrets['domain'] = 'andrew.cmu.edu'
 
 def execute(stmt):

@@ -22,6 +22,11 @@ chown aclman:aclman /opt/aclman/
 Then `su` as the new user, establish a read-only deploy key for this
 repository, and clone this repository into the target location.
 
+## Dependencies
+
+* A MySQL client.  Infrastructure servers running ACLMAN may already need,
+  e.g., the `default-mysql-server` package.
+
 ## Configuration
 
 Copy the example configuration and place API endpoints, keys, etc., in
