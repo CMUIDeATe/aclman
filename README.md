@@ -10,12 +10,17 @@ at [Carnegie Mellon University](https://www.cmu.edu/).
 
 ## Installation
 
-Create a user which will run ACLMAN in production:
+Create a user which will run ACLMAN in production, and establish a stable
+location such as `/opt/aclman` where it will run:
 ```
-sudo adduser --disabled-password aclman
+sudo -s
+adduser --disabled-password aclman
+mkdir /opt/aclman
+chown aclman:aclman /opt/aclman/
 ```
 
-As that user, clone this repository to a stable location such as `/opt/aclman`.
+Then `su` as the new user, establish a read-only deploy key for this
+repository, and clone this repository into the target location.
 
 ## Configuration
 
