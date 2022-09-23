@@ -6,7 +6,7 @@ at [Carnegie Mellon University](https://www.cmu.edu/).
 
 ## Requirements
 
-* Python 3
+* Python >= 3.5
 * A MySQL client.  Infrastructure servers running ACLMAN may already need,
   e.g., the `default-mysql-server` package.
 
