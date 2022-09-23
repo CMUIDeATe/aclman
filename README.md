@@ -97,3 +97,6 @@ or, equivalently, if an unscheduled production run is required:
 ```
 sudo su aclman -c "cd /opt/aclman && python3 -m aclman.aclman --live"
 ```
+
+Add `-s FILE` or `--sectionfile FILE` to read the section file from `FILE`
+instead of the default.  This is useful for testing with smaller datasets.
