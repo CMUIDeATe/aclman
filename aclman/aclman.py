@@ -450,24 +450,17 @@ if args.live:
   subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
 
 # Upload the file via SFTP to the CSGold Util server.
-# NOTE: In Python 3.5, the need for an SFTP batchfile should be avoided by
-# reading input from stdin, e.g.,
-#   subprocess.run(["sftp", "-b", "-", ...], ..., input=...)
-# as opposed to `subprocess.call(...)`.
-# See https://docs.python.org/3/library/subprocess.html#subprocess.run
 logger.info("Uploading XML file for door/keycard ACLs to CSGold Util %s server...." % environment)
-batchfile_path = '/tmp/aclman-sftp-batchfile'
-with open(batchfile_path, 'w') as batchfile:
-  batchfile.write("put %s Drop/" % keycard_path)
-batchfile.close()
 
+# Read SFTP commands from stdin with "-b -", given in the input argument.
 # Suppress verbose SFTP output with the `stdout=subprocess.DEVNULL` option.
 # Errors will still print to stderr.
-subprocess.call(["sftp", "-b", batchfile_path, "-i", secrets.csgold_util['ssh_key_path'],
+result = subprocess.run(["sftp", "-b", "-", "-i", secrets.csgold_util['ssh_key_path'],
   "%s@%s" % (secrets.csgold_util['username'], secrets.csgold_util['fqdn'])],
-  stdout=subprocess.DEVNULL)
-# Remove the temp file.
-os.remove(batchfile_path)
+  stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+  input=b"put %s Drop/" % keycard_path.encode('utf-8'))
+if result.returncode != 0:
+  logger.error("SFTP error %d:\n%s" % (result.returncode, result.stderr.decode('utf-8')))
 
 # TODO: Compare the just-generated ACL file with the previous version and log
 # the diffs locally.  This will make the reasons for drops easier to determine

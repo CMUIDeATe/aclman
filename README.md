@@ -50,8 +50,7 @@ sftp csgold-util.example.org
 
 Make sure the SSH keys are copied into the location specified by `ssh_key_path`
 for each environment.  The keys should be owned by the `aclman` user with
-permissions set to `0600`.  Uploads to CS Gold may fail silently without the
-key.
+permissions set to `0600`.
 
 ### Zoho API refresh token
 1. Log into [https://api-console.zoho.com/]
