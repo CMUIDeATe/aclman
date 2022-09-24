@@ -454,7 +454,7 @@ logger.info("Uploading XML file for door/keycard ACLs to CSGold Util %s server..
 
 # Read SFTP commands from stdin with "-b -", given in the input argument.
 # Suppress verbose SFTP output with the `stdout=subprocess.DEVNULL` option.
-# Errors will still print to stderr.
+# Errors will still be piped to stderr.
 result = subprocess.run(["sftp", "-b", "-", "-i", secrets.csgold_util['ssh_key_path'],
   "%s@%s" % (secrets.csgold_util['username'], secrets.csgold_util['fqdn'])],
   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
