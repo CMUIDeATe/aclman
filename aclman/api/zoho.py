@@ -15,8 +15,8 @@ def set_secrets(s):
   secrets['hostname'] = "https://creator.zoho.com"
   secrets['oauth_host'] = "https://accounts.zoho.com"
 
-  secrets['user_form'] = "New_User_Form"
-  secrets['user_view'] = "Users"
+  secrets['user_form'] = "Users"
+  secrets['user_view'] = "All_Users"
 
 def authenticate():
   # Use the (permanent) refresh token to get a (temporary) access token for
