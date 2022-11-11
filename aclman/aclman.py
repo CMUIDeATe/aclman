@@ -408,10 +408,7 @@ keycard_data = CsGoldData(comment='Generated as \'%s\' by ACLMAN at %s' % (keyca
 
 # Generate the elements for each access privilege.
 for andrewId in sorted(coalesced_student_privileges.keys()):
-  try:
-    billable = S3.get_student_from_andrewid(andrewId).billable
-  except:
-    billable = False
+  billable = S3.is_billable(andrewId)
   # Avoid adding privileges to students who are no longer enrolled/billable.
   # NOTE: This will NOT remove existing privileges in CS Gold prior to their
   # original expiry.
@@ -497,10 +494,7 @@ existing_andrewIds = Grouper.get_members(base_privileges_group)
 logger.info("Calculating new group memberships for `%s`...." % base_privileges_group)
 calculated_andrewIds = set()
 for andrewId in sorted(coalesced_student_privileges.keys()):
-  try:
-    billable = S3.get_student_from_andrewid(andrewId).billable
-  except:
-    billable = False
+  billable = S3.is_billable(andrewId)
   # Don't include students who aren't billable.
   if not billable:
     continue
@@ -641,10 +635,7 @@ zoho_to_activate = set()
 zoho_to_deactivate = set()
 
 for andrewId in calculated_andrewIds.difference(existing_andrewIds):
-  try:
-    billable = S3.get_student_from_andrewid(andrewId).billable
-  except:
-    billable = False
+  billable = S3.is_billable(andrewId)
   # If not listed in Zoho, add the user as long as they're billable.
   # NOTE: Since the user is being added due to their enrollment, it is assumed
   # that their role for Zoho should be "Student".
@@ -689,10 +680,7 @@ for andrewId in calculated_andrewIds.difference(existing_andrewIds):
 # upon activating or deactivating users with any role other than "Student".
 for andrewId in existing_andrewIds:
   user = zoho_users[andrewId]
-  try:
-    billable = S3.get_student_from_andrewid(andrewId).billable
-  except:
-    billable = False
+  billable = S3.is_billable(andrewId)
   # If already Inactive, but privilege is calculated as current, reactivate
   # them as long as they're billable.  But log an error/notice if the prior
   # role being restored is anything other than "Student".
@@ -813,12 +801,9 @@ for group in groups:
 # Calculate who else should have access based on privileges.
 logger.info("Calculating new privilege-based users for Skylab....")
 for andrewId in sorted(coalesced_student_privileges.keys()):
+  billable = S3.is_billable(andrewId)
   for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "3dprint"]:
     # Only maintain the privilege if the user is billable.
-    try:
-      billable = S3.get_student_from_andrewid(andrewId).billable
-    except:
-      billable = False
     if privilege.is_current() and billable:
       calculated_andrewIds.add(andrewId)
 

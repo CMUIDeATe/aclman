@@ -53,6 +53,13 @@ def get_roster_bioUrls(section):
   return section_roster
 
 
+def is_billable(andrewId):
+  try:
+    billable = get_student_from_andrewid(andrewId).billable
+  except:
+    billable = False
+  return billable
+
 def get_student_from_andrewid(andrewId):
   global students
   # Return memoized copy, if available.
