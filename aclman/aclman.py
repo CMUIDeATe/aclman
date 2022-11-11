@@ -408,8 +408,19 @@ keycard_data = CsGoldData(comment='Generated as \'%s\' by ACLMAN at %s' % (keyca
 
 # Generate the elements for each access privilege.
 for andrewId in sorted(coalesced_student_privileges.keys()):
+  try:
+    billable = S3.get_student_from_andrewid(andrewId).billable
+  except:
+    billable = False
+  # Avoid adding privileges to students who are no longer enrolled/billable.
+  # NOTE: This will NOT remove existing privileges in CS Gold prior to their
+  # original expiry.
+  if not billable:
+    continue
+
   for privilege in coalesced_student_privileges[andrewId]:
-    # NOTE: This process will even add old, expired privileges to the file.
+    # NOTE: This process will even add old, expired privileges to the file;
+    # as long as a student remains enrolled, their old entries will be added.
     # When they're re-uploaded, such records will live in the patron group for
     # a few hours afterwards before being deleted as expired by the CSGold
     # server.  We can avoid such churn by first checking against a copy of
