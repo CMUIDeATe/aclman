@@ -1,6 +1,7 @@
 # CSGold group mapping
 # Maps a `door_access` privilege value (room number) to a CSGold patron group number.
 csgold_group_mapping = {
+  'base': '154',
   'HL A4': '2074',
   'HL A5': '791',
   'HL A5B': '2034',
