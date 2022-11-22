@@ -276,10 +276,7 @@ class Student:
     self.data['biographical']['bioId'] = bioId
 
   def __str__(self):
-    if self.preferredName:
-      return "%s - %s (%s)" % (self.andrewId, self.fullName, self.firstName)
-    else:
-      return "%s - %s" % (self.andrewId, self.fullName)
+    return "%-8s - %s" % (self.andrewId, self.allNames)
 
 
 class CsGoldData:
