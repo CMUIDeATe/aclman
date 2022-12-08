@@ -9,6 +9,7 @@ import re
 
 import urllib.request
 import urllib.parse
+import importlib.resources
 import pathlib
 
 from aclman.models import *
@@ -30,25 +31,28 @@ def andrewid_str(andrewId):
 # Prologue.
 cli = CliParser('ACLMAN')
 cli.option('--live', dest='live', action='store_true', default=False, help="run ACLMAN live on production systems")
-cli.option('-s', '--sectionfile', dest='sectionfile', metavar='FILE', action='store', default="data/sections.csv", help="specify a path to a CSV section file defining privileges")
+cli.option('-s', '--sectionfile', dest='sectionfile', metavar='FILE', action='store', default=None, help="specify a path to a CSV section file defining privileges")
 args = cli.parse()
 
 if args.live:
   script_begin_time = datetime.datetime.now()
   run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
   import aclman.config.production as config
-  import aclman.secrets.production as secrets
+  import secrets.production as secrets
   environment = "PRODUCTION"
 else:
   # Confirm development runs before beginning, especially since inputs can be large.
-  response = input("Begin a DEVELOPMENT run on `%s`? (y/n) " % args.sectionfile)
+  if args.sectionfile is None:
+    response = input("Begin a DEVELOPMENT run on built-in section file? (y/n) ")
+  else:
+    response = input("Begin a DEVELOPMENT run on `%s`? (y/n) " % args.sectionfile)
   if response.lower() not in ['y', 'yes']:
     print("Aborted.")
     sys.exit(1)
   script_begin_time = datetime.datetime.now()
   run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S-dryrun")
   import aclman.config.development as config
-  import aclman.secrets.development as secrets
+  import secrets.development as secrets
   environment = "DEVELOPMENT"
 
 # Install a default instrumented URL opener.
@@ -94,11 +98,17 @@ logger.info("Environment is: %s" % environment)
 
 
 
-# Read in and process the list of sections from the section file.
-logger.info("Processing requested list of sections from section file `%s`...." % args.sectionfile)
+default_sectionfile = "sections.csv"
 
-s = open(args.sectionfile, "r")
+# Read in and process the list of sections from the section file.
+if args.sectionfile is None:
+  logger.info("Processing default list of sections from built-in section file....")
+  s = importlib.resources.open_text("data", default_sectionfile)
+else:
+  logger.info("Processing requested list of sections from section file `%s`...." % args.sectionfile)
+  s = open(args.sectionfile, "r")
 sreader = csv.reader(s)
+
 all_sections = []
 all_section_privileges = {}
 for row in sreader:
@@ -122,10 +132,14 @@ s.close()
 
 # Read in and process the privileges associated with each section from the
 # section file.
-logger.info("Processing associated privileges for %d sections from section file `%s`...." % (len(all_sections), args.sectionfile))
-
-s = open(args.sectionfile, "r")
+if args.sectionfile is None:
+  logger.info("Processing associated privileges for %d sections from built-in section file...." % len(all_sections))
+  s = importlib.resources.open_text("data", default_sectionfile)
+else:
+  logger.info("Processing associated privileges for %d sections from requested section file `%s`...." % (len(all_sections), args.sectionfile))
+  s = open(args.sectionfile, "r")
 sreader = csv.reader(s)
+
 all_privilege_types = []
 for row in sreader:
   # TODO: Be more robust in how this file is read in.

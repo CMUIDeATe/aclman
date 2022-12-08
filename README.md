@@ -6,32 +6,88 @@ at [Carnegie Mellon University](https://www.cmu.edu/).
 
 ## Requirements
 
-* Python >= 3.5
+* Python >= 3.7
+* `python3-venv` (for `pip` and `ensurepip`)
 * A MySQL client.  Infrastructure servers running ACLMAN may already need,
   e.g., the `default-mysql-server` package.
 
-## Installation
+## Setting up environments
 
-Create a user which will run ACLMAN in production, and establish a stable
-location such as `/opt/aclman` where it will run:
+This project uses `pyproject.toml` to establish dependencies for its build
+environment.  The overall build process is described in general terms
+[here](https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/).
+
+### Build environment
+
+Clone the repo and create a Python `venv` for the build environment:
 ```
+git clone git@github.com:CMUIDeATe/aclman.git
+cd ~/aclman
+python3 -m venv .venv/ --prompt aclman-build
+```
+
+Install `pip` dependencies to the build environment:
+```
+source .venv/bin/activate
+pip install --upgrade pip
+pip install build
+```
+
+Install the package to the build environment in "editable" mode:
+```
+pip install -e .
+```
+
+### Test and production environments
+
+Create an `aclman` user which will run ACLMAN in production, and establish a
+Python `venv` for each environment in which it will run:
+```
+sudo adduser --disabled-password aclman
 sudo -s
-adduser --disabled-password aclman
-mkdir /opt/aclman
-chown aclman:aclman /opt/aclman/
+python3 -m venv /opt/aclman-test/ --prompt aclman-test
+python3 -m venv /opt/aclman-prod/ --prompt aclman-prod
+chown -R aclman:aclman /opt/aclman-test/
+chown -R aclman:aclman /opt/aclman-prod/
 ```
 
-Then `su` as the new user, establish a read-only deploy key for this
-repository, and clone this repository into the target location.
+Then `su` as the new user and install `pip` dependencies to each environment
+`$ENV`:
+```
+sudo su aclman
+source /opt/$ENV/bin/activate
+pip install --upgrade pip
+pip install build
+```
+
+## Deploying to test and production
+
+From the build directory and environment, build a wheel:
+```
+cd ~/aclman
+source .venv/bin/activate
+# Bump the project version and update any other dependencies
+edit pyproject.toml
+python3 -m build --wheel
+```
+This creates a wheel in the `dist` subdirectory.  If needed, copy it to the
+target environment's host.
+
+Using the target environment's `pip`, install the application from the latest
+wheel created in the build environment's `dist` subdirectory, e.g.:
+```
+sudo /opt/$ENV/bin/pip install ~/aclman/dist/aclman-x.y.z-py3-none-any.whl
+```
+where `x.y.z` is the project version.
 
 ## Configuration
 
 Copy the example configuration and place API endpoints, keys, etc., in
-`aclman/secrets/{development,production}.py` as appropriate:
+`secrets/{development,production}.py` as appropriate:
 ```
-cp aclman/secrets/example.py aclman/secrets/development.py
-cp aclman/secrets/example.py aclman/secrets/production.py
-edit aclman/secrets/{development,production}.py
+cp secrets/example.py secrets/development.py
+cp secrets/example.py secrets/production.py
+edit secrets/{development,production}.py
 ```
 
 ## Deployment and setup
@@ -66,36 +122,42 @@ permissions set to `0600`.
     - Proceed through the setup script to generate a (permanent) refresh token.
 5. Place the generated refresh token in `aclman/secrets/production.py`
 
-## Updating
-
-To pull the latest updates into production, just pull from the repository.
-A typical user with `sudo` privileges will ordinarily accomplish this with:
-```
-sudo su aclman -c "cd /opt/aclman ; git pull origin main"
-```
-or, a bit more robustly:
-```
-sudo su aclman -c "cd /opt/aclman ; git fetch origin ; git reset --hard origin/main"
-```
-
 ## Usage
 
-From the project root directory, to conduct a dry-run in development
-environments:
+### Running from build
+
+If not already active, activate the build environment:
 ```
-python3 -m aclman.aclman
+cd ~/aclman
+source .venv/bin/activate
 ```
 
-Add `--live` to run in production.
+Run `python3 -m aclman` with the desired options.
+
+Add `-s FILE` or `--sectionfile FILE` to read the section file from `FILE`
+instead of the default.  This is useful for testing with smaller datasets.  For
+example:
+```
+python3 -m aclman -s src/data/test.csv
+```
+
+See `python3 -m aclman --help` for options.
+
+### Running from test or production
+
+Using the target environment's `python3`, run the application with the desired
+options, e.g.:
+```
+sudo su aclman
+cd /opt/$ENV
+./bin/python3 -m aclman [options]
+```
 
 For production `cron`, this is generally best invoked under the `aclman` user as:
 ```
-cd /opt/aclman && python3 -m aclman.aclman --live
+cd /opt/aclman-prod && ./bin/python3 -m aclman [options]
 ```
 or, equivalently, if an unscheduled production run is required:
 ```
-sudo su aclman -c "cd /opt/aclman && python3 -m aclman.aclman --live"
+sudo su aclman -c "cd /opt/aclman-prod && ./bin/python3 -m aclman [options]"
 ```
-
-Add `-s FILE` or `--sectionfile FILE` to read the section file from `FILE`
-instead of the default.  This is useful for testing with smaller datasets.

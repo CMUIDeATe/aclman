@@ -1,0 +1,23 @@
+[build-system]
+requires = ['setuptools']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'aclman'
+version = '0.0.1'
+description = "ACL manager middleware for IDeATe at Carnegie Mellon University"
+readme = "README.md"
+authors = [
+  { name = 'Tim Parenti', email = 'tparenti@andrew.cmu.edu' }
+]
+requires-python = '>=3.7'
+dependencies = []
+
+[project.urls]
+repository = "https://github.com/CMUIDeATe/aclman"
+
+[tool.setuptools]
+# Use automatic discovery
+
+[tool.setuptools.package-data]
+data = ['*.csv']

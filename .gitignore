@@ -1,8 +1,12 @@
 __pycache__
+build
+dist
 log
 output
+.venv
+*.egg-info
 *.pyc
 *.swp
 
-aclman/secrets
-!aclman/secrets/example.py
+secrets
+!secrets/example.py
