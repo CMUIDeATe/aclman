@@ -6,8 +6,10 @@ import os, sys
 import subprocess
 import csv, json
 import re
+
 import urllib.request
 import urllib.parse
+import pathlib
 
 from aclman.models import *
 import aclman.helpers as helpers
@@ -65,7 +67,7 @@ Zoho.set_secrets(secrets.zoho_api)
 # Configure logging.
 log_dir = "log"
 log_file = "%s.log" % run_date
-helpers.mkdir_p(log_dir)
+pathlib.Path(log_dir).mkdir(parents=True, exist_ok=True)
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -86,7 +88,7 @@ if args.live:
   subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
 
 output_dir = "output"
-helpers.mkdir_p(output_dir)
+pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 logger.info("ACLMAN script started: %s" % script_begin_time)
 logger.info("Environment is: %s" % environment)
 
@@ -375,7 +377,7 @@ del all_student_privileges
 jsondata_dir = "%s/jsondata" % output_dir
 jsondata_file = "data-%s.json" % run_date
 jsondata_path = jsondata_dir + '/' + jsondata_file
-helpers.mkdir_p(jsondata_dir)
+pathlib.Path(jsondata_dir).mkdir(parents=True, exist_ok=True)
 logger.info("Generating JSON file to locally cache calculated data at `%s`...." % jsondata_path)
 
 all_data = {}
@@ -404,7 +406,7 @@ if args.live:
 keycard_dir = "%s/keycard" % output_dir
 keycard_file = "keycard-%s.xml" % run_date
 keycard_path = keycard_dir + '/' + keycard_file
-helpers.mkdir_p(keycard_dir)
+pathlib.Path(keycard_dir).mkdir(parents=True, exist_ok=True)
 
 logger.info("Generating XML file for CSGold door/keycard ACLs at `%s`...." % keycard_path)
 keycard_data = CsGoldData(comment='Generated as \'%s\' by ACLMAN at %s' % (keycard_file, datetime.datetime.now()))
@@ -858,7 +860,7 @@ else:
 roster_dir = "%s/rosters" % output_dir
 roster_file = "rosters-%s.csv" % run_date
 roster_path = roster_dir + '/' + roster_file
-helpers.mkdir_p(roster_dir)
+pathlib.Path(roster_dir).mkdir(parents=True, exist_ok=True)
 logger.info("Generating CSV roster at `%s`...." % roster_path)
 
 with open(roster_path, 'w') as csvfile:
