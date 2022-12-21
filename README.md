@@ -38,6 +38,17 @@ Install the package to the build environment in "editable" mode:
 pip install -e .
 ```
 
+To configure the build environment, copy the example configuration files to the
+appropriate locations, and place API endpoints, keys, etc., in
+`config/secrets.yaml` as appropriate:
+```
+cp config/config.development.yaml config/config.yaml
+cp config/secrets.example.yaml config/secrets.yaml
+edit config/secrets.yaml
+```
+The locations of these configuration files can also be overridden with
+command-line options at invocation.
+
 ### Test and production environments
 
 Create an `aclman` user which will run ACLMAN in production, and establish a
@@ -60,6 +71,29 @@ pip install --upgrade pip
 pip install build
 ```
 
+To configure the environment, copy the example configuration files from the
+build environment to the appropriate locations, and place API endpoints, keys,
+etc., in `/opt/$ENV/config/secrets.yaml` as appropriate:
+```
+mkdir /opt/$ENV/config
+
+cp ~/aclman/config/config.development.yaml /opt/$ENV/config/config.yaml
+[OR] cp ~/aclman/config/config.production.yaml /opt/$ENV/config/config.yaml
+
+sudo cp ~/aclman/config/secrets.example.yaml /opt/$ENV/config/secrets.yaml
+edit /opt/$ENV/config/secrets.yaml
+```
+The locations of these configuration files can also be overridden with
+command-line options at invocation.
+
+Ensure the proper permissions on these configuration files:
+```
+sudo -s
+chmod 0644 /opt/$ENV/config/config.yaml
+chmod 0640 /opt/$ENV/config/secrets.yaml
+chown aclman:aclman /opt/$ENV/config/*.yaml
+```
+
 ## Deploying to test and production
 
 From the build directory and environment, build a wheel:
@@ -80,17 +114,7 @@ sudo /opt/$ENV/bin/pip install ~/aclman/dist/aclman-x.y.z-py3-none-any.whl
 ```
 where `x.y.z` is the project version.
 
-## Configuration
-
-Copy the example configuration and place API endpoints, keys, etc., in
-`secrets/{development,production}.py` as appropriate:
-```
-cp secrets/example.py secrets/development.py
-cp secrets/example.py secrets/production.py
-edit secrets/{development,production}.py
-```
-
-## Deployment and setup
+## Initialization
 
 ### CSGold
 To ensure that automatic SFTP connections to the CSGold Util server go through,
@@ -109,18 +133,18 @@ for each environment.  The keys should be owned by the `aclman` user with
 permissions set to `0600`.
 
 ### Zoho API refresh token
-1. Log into [https://api-console.zoho.com/]
+1. Log into https://api-console.zoho.com/
 2. Select the "Self Client" which represents this server-based application.
    (If it doesn't exist, create one.)
 3. Under "Client Secret", copy the Client ID and Client Secret, and place them
-   in `aclman/secrets/production.py`
+   in `config/secrets.yaml`
 4. From the project root directory, run the setup script:
    `python3 -m aclman.setup.zoho`
     - Confirm the Client ID and Client Secret.
     - Follow the instructions in the setup script to request a (short-lived)
       authorization code for the app.
     - Proceed through the setup script to generate a (permanent) refresh token.
-5. Place the generated refresh token in `aclman/secrets/production.py`
+5. Place the generated refresh token in `config/secrets.yaml`.
 
 ## Usage
 

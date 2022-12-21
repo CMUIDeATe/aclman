@@ -11,7 +11,7 @@ authors = [
   { name = 'Tim Parenti', email = 'tparenti@andrew.cmu.edu' }
 ]
 requires-python = '>=3.7'
-dependencies = []
+dependencies = ['pyyaml']
 
 [project.urls]
 repository = "https://github.com/CMUIDeATe/aclman"

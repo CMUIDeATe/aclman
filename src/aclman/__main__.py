@@ -4,7 +4,7 @@ import datetime
 import logging
 import os, sys
 import subprocess
-import csv, json
+import csv, json, yaml
 import re
 
 import urllib.request
@@ -16,6 +16,7 @@ from aclman.models import *
 import aclman.helpers as helpers
 
 from aclman.cli import CliParser
+from argparse import Namespace as parse_namespace
 
 import aclman.api.s3 as S3
 import aclman.api.grouper as Grouper
@@ -30,18 +31,21 @@ def andrewid_str(andrewId):
 
 # Prologue.
 cli = CliParser('ACLMAN')
-cli.option('--live', dest='live', action='store_true', default=False, help="run ACLMAN live on production systems")
 cli.option('-s', '--sectionfile', dest='sectionfile', metavar='FILE', action='store', default=None, help="specify a path to a CSV section file defining privileges")
+cli.file_read_option('-c', '--configfile', dest='configfile', metavar='FILE', action='store', default="config/config.yaml", help="specify a path to a YAML file defining configuration")
+cli.file_read_option('-S', '--secretsfile', dest='secretsfile', metavar='FILE', action='store', default="config/secrets.yaml", help="specify a path to a YAML file defining connection/authentication secrets")
 args = cli.parse()
 
-if args.live:
-  script_begin_time = datetime.datetime.now()
-  run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
-  import aclman.config.production as config
-  import secrets.production as secrets
-  environment = "PRODUCTION"
+config = parse_namespace(**yaml.safe_load(args.configfile))
+secrets = parse_namespace(**yaml.safe_load(args.secretsfile))
+
+script_begin_time = datetime.datetime.now()
+run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
+if config.environment == "PRODUCTION":
+  live = True
 else:
-  # Confirm development runs before beginning, especially since inputs can be large.
+  live = False
+  # Confirm non-production runs before beginning, especially since inputs can be large.
   if args.sectionfile is None:
     response = input("Begin a DEVELOPMENT run on built-in section file? (y/n) ")
   else:
@@ -49,11 +53,6 @@ else:
   if response.lower() not in ['y', 'yes']:
     print("Aborted.")
     sys.exit(1)
-  script_begin_time = datetime.datetime.now()
-  run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S-dryrun")
-  import aclman.config.development as config
-  import secrets.development as secrets
-  environment = "DEVELOPMENT"
 
 # Install a default instrumented URL opener.
 instrumented_opener = urllib.request.build_opener(helpers.CustomHTTPErrorHandler)
@@ -81,20 +80,18 @@ file_log_handler.setFormatter(logging.Formatter('%(asctime)s.%(msecs)03d:%(level
 file_log_handler.setLevel(logging.DEBUG)
 logger.addHandler(file_log_handler)
 # If not running in production, also log INFO to the console.
-if not args.live:
+if not live:
   console_log_handler = logging.StreamHandler(sys.stdout)
   console_log_handler.setFormatter(logging.Formatter('%(message)s'))
   console_log_handler.setLevel(logging.INFO)
   logger.addHandler(console_log_handler)
 
-subprocess.call(["ln", "-sf", log_file, log_dir + "/latest-%s.log" % environment])
-if args.live:
-  subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
+subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
 
 output_dir = "output"
 pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 logger.info("ACLMAN script started: %s" % script_begin_time)
-logger.info("Environment is: %s" % environment)
+logger.info("Environment is: %s" % config.environment)
 
 
 
@@ -406,10 +403,7 @@ for student in S3.students:
 # Write out the file.
 with open(jsondata_path, 'w') as jsonfile:
   jsonfile.write(json.dumps(all_data, sort_keys=True, indent=2, cls=helpers.CustomJSONEncoder))
-jsonfile.close()
-subprocess.call(["ln", "-sf", jsondata_file, jsondata_dir + "/latest-%s.json" % environment])
-if args.live:
-  subprocess.call(["ln", "-sf", jsondata_file, jsondata_dir + "/latest.json"])
+subprocess.call(["ln", "-sf", jsondata_file, jsondata_dir + "/latest.json"])
 
 
 #   1. Generate XML file for door/keycard ACL management, upload via SFTP with
@@ -471,13 +465,10 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
 # Write out the file.
 with open(keycard_path, 'w') as xmlfile:
   xmlfile.write(keycard_data.export_xml())
-xmlfile.close()
-subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest-%s.xml" % environment])
-if args.live:
-  subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
+subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
 
 # Upload the file via SFTP to the CSGold Util server.
-logger.info("Uploading XML file for door/keycard ACLs to CSGold Util %s server...." % environment)
+logger.info("Uploading XML file for door/keycard ACLs to CSGold Util %s server...." % config.environment)
 
 # Read SFTP commands from stdin with "-b -", given in the input argument.
 # Suppress verbose SFTP output with the `stdout=subprocess.DEVNULL` option.
@@ -583,11 +574,11 @@ for privilege_type in all_privilege_types:
     mrbs_to_del = existing_andrewIds.difference(calculated_andrewIds)
     mrbs_to_add = calculated_andrewIds.difference(existing_andrewIds)
 
-    if not args.live:
+    if not live:
       # Since there is presently no development environment for MRBS, take no
       # action in DEVELOPMENT mode; rather, simply output the calculated
       # differences.
-      logger.info("Environment is %s; NOT adding/removing MRBS users." % environment)
+      logger.info("Environment is %s; NOT adding/removing MRBS users." % config.environment)
       logger.debug("%d members should be removed from MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_del), mrbs_roomNumber, mrbs_roomId))
       for andrewId in sorted(mrbs_to_del):
         logger.debug("  %s", andrewid_str(andrewId))
@@ -748,11 +739,11 @@ for andrewId in existing_andrewIds:
 # TODO: Determine whether any preferred names have changed and update Zoho
 # records accordingly.
 
-if not args.live:
+if not live:
   # Since there is presently no development environment for Zoho, take no
   # action in DEVELOPMENT mode; rather, simply output the calculated
   # differences.
-  logger.info("Environment is %s; NOT adding/removing Zoho users." % environment)
+  logger.info("Environment is %s; NOT adding/removing Zoho users." % config.environment)
   logger.debug("%d members should be deactivated in Zoho user list...." % len(zoho_to_deactivate))
   for andrewId in sorted(zoho_to_deactivate):
     logger.debug("  %s", andrewid_str(andrewId))
@@ -831,11 +822,11 @@ logger.info("Determining user list differences....")
 skylab_to_disable = existing_andrewIds.difference(calculated_andrewIds)
 skylab_to_enable = calculated_andrewIds.difference(existing_andrewIds)
 
-if not args.live:
+if not live:
   # Since there is presently no development environment for Skylab, take no
   # action in DEVELOPMENT mode; rather, simply output the calculated
   # differences.
-  logger.info("Environment is %s; NOT adding/removing Skylab users." % environment)
+  logger.info("Environment is %s; NOT adding/removing Skylab users." % config.environment)
   logger.debug("%d members should be disabled in Skylab user list...." % len(skylab_to_disable))
   for andrewId in sorted(skylab_to_disable):
     logger.debug("  %s", andrewid_str(andrewId))
@@ -894,15 +885,12 @@ with open(roster_path, 'w') as csvfile:
       }
       writer.writerow(row)
 
-csvfile.close()
-subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest-%s.csv" % environment])
-if args.live:
-  subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
+subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
 
 
 # Epilogue.
 script_end_time = datetime.datetime.now()
-logger.info("Done with %s run." % environment)
+logger.info("Done with %s run." % config.environment)
 script_elapsed = (script_end_time - script_begin_time).total_seconds()
 logger.info("  Finished: %s" % script_end_time)
 logger.info("   Started: %s" % script_begin_time)

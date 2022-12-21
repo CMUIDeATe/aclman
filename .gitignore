@@ -8,5 +8,5 @@ output
 *.pyc
 *.swp
 
-secrets
-!secrets/example.py
+config/*secrets*
+!config/secrets.example.yaml
