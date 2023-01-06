@@ -165,11 +165,14 @@ example:
 python3 -m aclman -s src/data/test.csv
 ```
 
-See `python3 -m aclman --help` for options.
+The locations used for logs (and configuration, unless overridden) are based on
+the directory from which `aclman` is invoked.  See `python3 -m aclman --help`
+for options.
 
 ### Running from test or production
 
-Using the target environment's `python3`, run the application with the desired
+Using the target environment's `python3`, enter the desired invocation
+directory for logs and configuration, and run the application with the desired
 options, e.g.:
 ```
 sudo su aclman
