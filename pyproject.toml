@@ -10,7 +10,7 @@ readme = "README.md"
 authors = [
   { name = 'Tim Parenti', email = 'tparenti@andrew.cmu.edu' }
 ]
-requires-python = '>=3.7'
+requires-python = '>=3.8'
 dependencies = ['pyyaml']
 
 [project.urls]

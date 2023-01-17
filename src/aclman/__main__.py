@@ -7,9 +7,11 @@ import subprocess
 import csv, json, yaml
 import re
 
+import socket
 import urllib.request
 import urllib.parse
 import importlib.resources
+import importlib.metadata
 import pathlib
 
 from aclman.models import *
@@ -91,6 +93,8 @@ subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
 output_dir = "output"
 pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 logger.info("ACLMAN script started: %s" % script_begin_time)
+logger.info("ACLMAN verison is: %s" % importlib.metadata.version('aclman'))
+logger.info("Local host is: %s" % socket.getfqdn())
 logger.info("Environment is: %s" % config.environment)
 
 

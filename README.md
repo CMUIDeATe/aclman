@@ -6,7 +6,7 @@ at [Carnegie Mellon University](https://www.cmu.edu/).
 
 ## Requirements
 
-* Python >= 3.7
+* Python >= 3.8
 * `python3-venv` (for `pip` and `ensurepip`)
 * A MySQL client.  Infrastructure servers running ACLMAN may already need,
   e.g., the `default-mysql-server` package.
