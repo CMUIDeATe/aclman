@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'aclman'
-version = '0.1.4'
+version = '0.1.5'
 description = "ACL manager middleware for IDeATe at Carnegie Mellon University"
 readme = "README.md"
 authors = [
