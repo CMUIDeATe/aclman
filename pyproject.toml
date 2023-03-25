@@ -4,14 +4,14 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'aclman'
-version = '0.1.7'
+version = '0.2.0-ldap.rc.1'
 description = "ACL manager middleware for IDeATe at Carnegie Mellon University"
 readme = "README.md"
 authors = [
   { name = 'Tim Parenti', email = 'tparenti@andrew.cmu.edu' }
 ]
 requires-python = '>=3.8'
-dependencies = ['pyyaml']
+dependencies = ['ldap3', 'pyyaml']
 
 [project.urls]
 repository = "https://github.com/CMUIDeATe/aclman"

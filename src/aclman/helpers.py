@@ -30,7 +30,7 @@ class CustomJSONEncoder(JSONEncoder):
   def default(self, obj):
     if isinstance(obj, (Semester, Section, Privilege, PrivilegeType)):
       return str(obj)
-    if isinstance(obj, Student):
+    if isinstance(obj, Person):
       return {'firstName': obj.firstName, 'preferredName': obj.preferredName, 'lastName': obj.lastName}
     return JSONEncoder.default(self, obj)
 

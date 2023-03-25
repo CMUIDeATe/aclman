@@ -5,7 +5,6 @@ import urllib.parse
 import json
 
 from aclman.models import *
-import aclman.api.s3 as S3
 
 secrets = {}
 
@@ -86,7 +85,7 @@ def get_user_data(andrewId):
 def add_user(andrewId):
   global secrets
   endpoint = "%s/api/v2/%s/%s/form/%s" % (secrets['hostname'], secrets['owner'], secrets['application'], secrets['user_form'])
-  student = S3.get_student_from_andrewid(andrewId)
+  student = Person(andrewId)
   params = { 'data': {
     'user_aid': andrewId,
     'user_email': "%s@andrew.cmu.edu" % andrewId,

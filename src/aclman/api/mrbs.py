@@ -3,7 +3,6 @@ import subprocess
 import re
 
 from aclman.models import *
-import aclman.api.s3 as S3
 
 secrets = {}
 
@@ -28,7 +27,7 @@ def add_member(roomId, member):
   count = int( execute("SELECT count(id) FROM mrbs.mrbs_users WHERE user_login = \"%s\";" % eppn) )
   # Add them if they're not.
   if count == 0:
-    execute("INSERT INTO mrbs.mrbs_users (user_login, user_pass, user_nicename, user_email, display_name, level, affiliation, user_registered) VALUES (\"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"1\", \"C\", \"%s\");" % (eppn, member, member, eppn, S3.get_student_from_andrewid(member).fullDisplayName, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    execute("INSERT INTO mrbs.mrbs_users (user_login, user_pass, user_nicename, user_email, display_name, level, affiliation, user_registered) VALUES (\"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"1\", \"C\", \"%s\");" % (eppn, member, member, eppn, Person(member).fullDisplayName, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     # NOTE: `user_pass` is not actually used since MRBS login is controlled
     # by Shibboleth.
 

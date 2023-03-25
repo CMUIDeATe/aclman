@@ -4,6 +4,10 @@ import calendar
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 
+# TODO FIX CIRCULAR IMPORT???
+import aclman.api.ldap as Ldap
+import aclman.api.s3 as S3
+
 @functools.total_ordering
 class Semester:
   def __init__(self, semester):
@@ -251,14 +255,28 @@ class Privilege:
     return b
 
 
-class Student:
-  def __init__(self, data):
-    self.data = data
-    self.andrewId = data['biographical']['andrewId']
-    self.firstName = data['biographical']['firstName']
-    self.preferredName = data['biographical']['preferredName']
-    self.lastName = data['biographical']['lastName']
+class Person:
+  cached_people = {}
+
+  def __new__(self, andrewId):
+    # Return memoized person, if available.
+    if andrewId in Person.cached_people:
+      return Person.cached_people[andrewId]
+
+    self.andrewId = andrewId
+    # Fetch LDAP and S3 data for this new person.
+    self.ldap_data = Ldap.fetch_ldap_data_from_andrewid(andrewId)
+    self.s3_data = S3.fetch_student_data_from_andrewid(andrewId)
+
+    self.firstName = ldap_data['givenName']
+    self.preferredName = ldap_data['nickname']
+    self.lastName = ldap_data['sn']
+    #self.firstName = s3_data['biographical']['firstName']
+    #self.preferredName = s3_data['biographical']['preferredName']
+    #self.lastName = s3_data['biographical']['lastName']
     # Derive other names.
+    # XXX TODO: THIS IS NOT QUITE CORRECT IN VARIOUS CASES
+    # TODO: NEED BETTER STRUCTURED ATTRIBUTES
     if self.preferredName:
       self.commonName = self.preferredName
       self.allNames = "%s, %s (%s)" % (self.lastName, self.preferredName, self.firstName)
@@ -266,17 +284,32 @@ class Student:
       self.commonName = self.firstName
       self.allNames = "%s, %s" % (self.lastName, self.firstName)
     self.fullName = "%s, %s" % (self.lastName, self.commonName)
-    self.fullDisplayName = "%s %s" % (self.commonName, self.lastName)
+    try:
+      #self.fullDisplayName = "%s %s" % (self.commonName, self.lastName)
+      # Stringify the resulting ldap3.abstract.attribute.Attribute object.
+      # Yields [] if the attribute is empty.
+      self.fullDisplayName = str(ldap_data['displayName'])
+    except KeyError:
+      self.fullDisplayName = None
 
-    self.billable = data['academic']['billable']
-    # TODO: Find out whether `hasHolds` and `holdDescriptions` might ever
-    # contain any useful data.
+    # TODO: Use eduPersonScopedAffiliation
+    if self.s3_data is not None:
+      self.billable = s3_data['academic']['billable']
+      # TODO: Find out whether `hasHolds` and `holdDescriptions` might ever
+      # contain any useful data.
+    else:
+      self.billable = False
+
+    # Persist the data for this person to the cache before returning it.
+    # XXX TODO: Check whether this is right
+    Person.cached_people[andrewId] = self
+    return Person.cached_people[andrewId]
 
   def set_bioId(self, bioId):
-    self.data['biographical']['bioId'] = bioId
+    self.s3_data['biographical']['bioId'] = bioId
 
   def __str__(self):
-    return "%-8s - %s" % (self.andrewId, self.allNames)
+    return "%-8s - %s" % (self.andrewId, self.fullDisplayName)
 
 
 class CsGoldData:

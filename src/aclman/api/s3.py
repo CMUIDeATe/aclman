@@ -8,7 +8,6 @@ import aclman.helpers as helpers
 
 secrets = {}
 
-students = {}
 student_sections = {}
 
 business_semester = helpers.business_semester()
@@ -53,33 +52,7 @@ def get_roster_bioUrls(section):
   return section_roster
 
 
-def is_billable(andrewId):
-  try:
-    billable = get_student_from_andrewid(andrewId).billable
-  except:
-    billable = False
-  return billable
-
-def get_student_from_andrewid(andrewId):
-  global students
-  # Return memoized copy, if available.
-  if andrewId in students:
-    return students[andrewId]
-  # Otherwise, fetch the student's data from S3.
-  __fetch_student_data_from_andrewid(andrewId)
-  # NOTE: When fetching students in this fashion, `bioID` will come back null.
-  # Access to this data can be requested if it is needed.
-  return students[andrewId]
-
-def get_student_from_bioid(bioId):
-  global students
-  andrewId = __translate_bioid_to_andrewid(bioId)
-  get_student_from_andrewid(andrewId)
-  # Fill in the missing `bioID` value, since it is known.
-  students[andrewId].set_bioId(bioId)
-  return students[andrewId]
-
-def __translate_bioid_to_andrewid(bioId):
+def translate_bioid_to_andrewid(bioId):
   # NOTE: This could also be memoized.
   global secrets, opener
   endpoint = "%s/student/bio/%s?idType=BIO" % (secrets['hostname'], bioId)
@@ -91,8 +64,8 @@ def __translate_bioid_to_andrewid(bioId):
     return None
   return bio_data['andrewId']
 
-def __fetch_student_data_from_andrewid(andrewId):
-  global secrets, opener, students, business_semester
+def fetch_student_data_from_andrewid(andrewId):
+  global secrets, opener, business_semester
   data = {}
 
   # Get biographical data for the student.
@@ -155,6 +128,4 @@ def __fetch_student_data_from_andrewid(andrewId):
   else:
     data['academic']['pendingGraduate'] = ( Semester(grad_semester) == business_semester )
 
-  # Persist the data for this student to the global cache before returning it.
-  students[andrewId] = Student(data)
-  return students[andrewId]
+  return data

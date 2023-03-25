@@ -20,15 +20,12 @@ import aclman.helpers as helpers
 from aclman.cli import CliParser
 from argparse import Namespace as parse_namespace
 
+import aclman.api.ldap as Ldap
 import aclman.api.s3 as S3
 import aclman.api.grouper as Grouper
 import aclman.api.mrbs as Mrbs
 import aclman.api.skylab as Skylab
 import aclman.api.zoho as Zoho
-
-
-def andrewid_str(andrewId):
-  return str(S3.get_student_from_andrewid(andrewId)) or andrewId
 
 
 # Prologue.
@@ -61,6 +58,7 @@ instrumented_opener = urllib.request.build_opener(helpers.CustomHTTPErrorHandler
 urllib.request.install_opener(instrumented_opener)
 
 # Establish auth to each API.
+Ldap.set_secrets(secrets.ldap)
 S3.set_secrets(secrets.s3_api)
 Grouper.set_secrets(secrets.grouper_api)
 Mrbs.set_secrets(secrets.mrbs_db)
@@ -98,6 +96,12 @@ logger.info("Local host is: %s" % socket.getfqdn())
 logger.info("Environment is: %s" % config.environment)
 
 
+
+# ----- BEGIN TEST -----
+print(Person('tparenti'))
+print(Person('rmckelve'))
+#exit(0)
+# ----- END TEST -----
 
 default_sectionfile = "sections.csv"
 
@@ -238,13 +242,14 @@ logger.info("Getting data for all %d dedup'd students found...." % len(all_bioId
 for bioId in all_bioIds:
   # Keep track of this student's enrolled sections.
   sections = sorted(all_bioIds[bioId]['sections'])
-  student = S3.get_student_from_bioid(bioId)
+  andrewId = S3.translate_bioid_to_andrewid(bioId)
 
-  if student:
+  if andrewId:
+    # Record this student's sections.
+    S3.student_sections[andrewId] = sections
+    # Memoize this student in the Person class.
+    student = Person(andrewId)
     logger.debug("%-39s\t%s" % (student, ','.join(str(x) for x in sections)))
-    # Record this student's data and their sections.
-    S3.students[student.andrewId] = student
-    S3.student_sections[student.andrewId] = sections
   else:
     logger.error("Did not find data for BIO ID '%s'" % bioId)
 
@@ -317,11 +322,9 @@ for group_access_def in group_access_defs:
     # of entries.
     if andrewId not in all_student_privileges:
       try:
-        student = S3.get_student_from_andrewid(andrewId)
+        student = Person(andrewId)
       except KeyError:
-        # TODO: Fill in non-student data from LDAP.
-        # NOTE: Some faculty and staff do have student records nonetheless.
-        logger.info("  SKIPPING %-8s - (no student record)" % andrewId)
+        logger.info("  SKIPPING %-8s - (no LDAP record)" % andrewId)
         continue
       logger.info("  Adding   %-39s" % student)
       S3.students[andrewId] = student
@@ -425,7 +428,7 @@ keycard_data = CsGoldData(comment='Generated as \'%s\' by ACLMAN at %s' % (keyca
 
 # Generate the elements for each access privilege.
 for andrewId in sorted(coalesced_student_privileges.keys()):
-  billable = S3.is_billable(andrewId)
+  billable = Person(andrewId).billable
   # Avoid adding privileges to students who are no longer enrolled/billable.
   # NOTE: This will NOT remove existing privileges in CS Gold prior to their
   # original expiry.
@@ -508,7 +511,7 @@ existing_andrewIds = Grouper.get_members(base_privileges_group)
 logger.info("Calculating new group memberships for `%s`...." % base_privileges_group)
 calculated_andrewIds = set()
 for andrewId in sorted(coalesced_student_privileges.keys()):
-  billable = S3.is_billable(andrewId)
+  billable = Person(andrewId).billable
   # Don't include students who aren't billable.
   if not billable:
     continue
@@ -526,7 +529,7 @@ logger.info("Removing %d members from group `%s`...." % (len(grouper_to_del), ba
 for andrewId in sorted(grouper_to_del):
   try:
     Grouper.remove_member(base_privileges_group, andrewId)
-    logger.debug("  Removed %s", andrewid_str(andrewId))
+    logger.debug("  Removed %s", Person(andrewId))
   except urllib.error.HTTPError as e:
     sys.stderr.write("  Grouper error while removing member %s: %s\n" % (andrewId, e))
     logger.error("  Grouper error while removing member %s: %s" % (andrewId, e))
@@ -534,7 +537,7 @@ logger.info("Adding %d members to group `%s`...." % (len(grouper_to_add), base_p
 for andrewId in sorted(grouper_to_add):
   try:
     Grouper.add_member(base_privileges_group, andrewId)
-    logger.debug("  Added %s", andrewid_str(andrewId))
+    logger.debug("  Added %s", Person(andrewId))
   except urllib.error.HTTPError as e:
     sys.stderr.write("  Grouper error while adding member %s: %s\n" % (andrewId, e))
     logger.error("  Grouper error while adding member %s: %s" % (andrewId, e))
@@ -585,17 +588,17 @@ for privilege_type in all_privilege_types:
       logger.info("Environment is %s; NOT adding/removing MRBS users." % config.environment)
       logger.debug("%d members should be removed from MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_del), mrbs_roomNumber, mrbs_roomId))
       for andrewId in sorted(mrbs_to_del):
-        logger.debug("  %s", andrewid_str(andrewId))
+        logger.debug("  %s", Person(andrewId))
       logger.debug("%d members should be added to MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_add), mrbs_roomNumber, mrbs_roomId))
       for andrewId in sorted(mrbs_to_add):
-        logger.debug("  %s", andrewid_str(andrewId))
+        logger.debug("  %s", Person(andrewId))
     else:
       # In PRODUCTION, add and remove members as determined.
       logger.info("Removing %d members from MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_del), mrbs_roomNumber, mrbs_roomId))
       for andrewId in sorted(mrbs_to_del):
         try:
           Mrbs.remove_member(mrbs_roomId, andrewId)
-          logger.debug("  Removed %s", andrewid_str(andrewId))
+          logger.debug("  Removed %s", Person(andrewId))
         except:
           sys.stderr.write("  MRBS error while removing member %s!\n" % andrewId)
           logger.error("  MRBS error while removing member %s!" % andrewId)
@@ -603,7 +606,7 @@ for privilege_type in all_privilege_types:
       for andrewId in sorted(mrbs_to_add):
         try:
           Mrbs.add_member(mrbs_roomId, andrewId)
-          logger.debug("  Added %s", andrewid_str(andrewId))
+          logger.debug("  Added %s", Person(andrewId))
         except:
           sys.stderr.write("  MRBS error while adding member %s!\n" % andrewId)
           logger.error("  MRBS error while adding member %s!" % andrewId)
@@ -649,7 +652,7 @@ zoho_to_activate = set()
 zoho_to_deactivate = set()
 
 for andrewId in calculated_andrewIds.difference(existing_andrewIds):
-  billable = S3.is_billable(andrewId)
+  billable = Person(andrewId).billable
   # If not listed in Zoho, add the user as long as they're billable.
   # NOTE: Since the user is being added due to their enrollment, it is assumed
   # that their role for Zoho should be "Student".
@@ -694,7 +697,7 @@ for andrewId in calculated_andrewIds.difference(existing_andrewIds):
 # upon activating or deactivating users with any role other than "Student".
 for andrewId in existing_andrewIds:
   user = zoho_users[andrewId]
-  billable = S3.is_billable(andrewId)
+  billable = Person(andrewId).billable
   # If already Inactive, but privilege is calculated as current, reactivate
   # them as long as they're billable.  But log an error/notice if the prior
   # role being restored is anything other than "Student".
@@ -750,20 +753,20 @@ if not live:
   logger.info("Environment is %s; NOT adding/removing Zoho users." % config.environment)
   logger.debug("%d members should be deactivated in Zoho user list...." % len(zoho_to_deactivate))
   for andrewId in sorted(zoho_to_deactivate):
-    logger.debug("  %s", andrewid_str(andrewId))
+    logger.debug("  %s", Person(andrewId))
   logger.debug("%d members should be activated in Zoho user list...." % len(zoho_to_activate))
   for andrewId in sorted(zoho_to_activate):
-    logger.debug("  %s", andrewid_str(andrewId))
+    logger.debug("  %s", Person(andrewId))
   logger.debug("%d members should be added to Zoho user list...." % len(zoho_to_add))
   for andrewId in sorted(zoho_to_add):
-    logger.debug("  %s", andrewid_str(andrewId))
+    logger.debug("  %s", Person(andrewId))
 else:
   # In PRODUCTION, add and remove members as determined.
   logger.info("Deactivating %d members in Zoho user list...." % len(zoho_to_deactivate))
   for andrewId in sorted(zoho_to_deactivate):
     try:
       Zoho.deactivate_user(andrewId)
-      logger.debug("  Deactivated %s", andrewid_str(andrewId))
+      logger.debug("  Deactivated %s", Person(andrewId))
     except:
       sys.stderr.write("  Zoho error while deactivating member %s!\n" % andrewId)
       logger.error("  Zoho error while deactivating member %s!" % andrewId)
@@ -771,7 +774,7 @@ else:
   for andrewId in sorted(zoho_to_activate):
     try:
       Zoho.activate_user(andrewId)
-      logger.debug("  Activated %s", andrewid_str(andrewId))
+      logger.debug("  Activated %s", Person(andrewId))
     except:
       sys.stderr.write("  Zoho error while activating member %s!\n" % andrewId)
       logger.error("  Zoho error while activating member %s!" % andrewId)
@@ -779,7 +782,7 @@ else:
   for andrewId in sorted(zoho_to_add):
     try:
       Zoho.add_user(andrewId)
-      logger.debug("  Added %s", andrewid_str(andrewId))
+      logger.debug("  Added %s", Person(andrewId))
     except:
       sys.stderr.write("  Zoho error while adding member %s!\n" % andrewId)
       logger.error("  Zoho error while adding member %s!" % andrewId)
@@ -815,7 +818,7 @@ for group in groups:
 # Calculate who else should have access based on privileges.
 logger.info("Calculating new privilege-based users for Skylab....")
 for andrewId in sorted(coalesced_student_privileges.keys()):
-  billable = S3.is_billable(andrewId)
+  billable = Person(andrewId).billable
   for privilege in [x for x in coalesced_student_privileges[andrewId] if x.key == "3dprint"]:
     # Only maintain the privilege if the user is billable.
     if privilege.is_current() and billable:
@@ -833,17 +836,17 @@ if not live:
   logger.info("Environment is %s; NOT adding/removing Skylab users." % config.environment)
   logger.debug("%d members should be disabled in Skylab user list...." % len(skylab_to_disable))
   for andrewId in sorted(skylab_to_disable):
-    logger.debug("  %s", andrewid_str(andrewId))
+    logger.debug("  %s", Person(andrewId))
   logger.debug("%d members should be added/enabled in Skylab user list...." % len(skylab_to_enable))
   for andrewId in sorted(skylab_to_enable):
-    logger.debug("  %s", andrewid_str(andrewId))
+    logger.debug("  %s", Person(andrewId))
 else:
   # In PRODUCTION, add and remove members as determined.
   logger.info("Disabling %d users in Skylab...." % len(skylab_to_disable))
   for andrewId in sorted(skylab_to_disable):
     try:
       Skylab.disable_user(andrewId)
-      logger.debug("  Disabled %s", andrewid_str(andrewId))
+      logger.debug("  Disabled %s", Person(andrewId))
     except Exception as e:
       sys.stderr.write("  Skylab error while adding/enabling member %s: %s\n" % (andrewId, e))
       logger.error("  Skylab error while adding/enabling member %s: %s" % (andrewId, e))
@@ -852,7 +855,7 @@ else:
     try:
       # add_user() here will prefer to enable a previously disabled user, if one exists.
       Skylab.add_user(andrewId)
-      logger.debug("  Added/Enabled %s", andrewid_str(andrewId))
+      logger.debug("  Added/Enabled %s", Person(andrewId))
     except Exception as e:
       sys.stderr.write("  Skylab error while adding/enabling member %s: %s\n" % (andrewId, e))
       logger.error("  Skylab error while adding/enabling member %s: %s" % (andrewId, e))

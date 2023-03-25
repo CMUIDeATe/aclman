@@ -5,7 +5,6 @@ import urllib.parse
 import json
 
 from aclman.models import *
-import aclman.api.s3 as S3
 
 secrets = {}
 
@@ -52,7 +51,7 @@ def add_user(andrewId):
   # Otherwise, it newly creates the user.
   global secrets
   endpoint = "%s/api/entities/academics-create-or-update" % (secrets['hostname'])
-  student = S3.get_student_from_andrewid(andrewId)
+  student = Person(andrewId)
   params = {
     'email': "%s@andrew.cmu.edu" % andrewId,
     'firstName': student.commonName,
