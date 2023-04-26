@@ -89,6 +89,36 @@ class Semester:
     self.start = datetime.datetime( start_date.year, start_date.month, start_date.day, 0, 0, 0 )
     self.end = datetime.datetime( end_date.year, end_date.month, end_date.day, 23, 59, 59 )
 
+  # Return the previous semester in sequence.
+  # NOTE: This will eventually wrap due to coercion of two-digit years.
+  def previous(self):
+    if self.sem_type == 'S':
+      prev_sem = "F%2d" % ( int(self.year_code) - 1 % 100 )
+    elif self.sem_type == 'U':
+      prev_sem = "S%2d" % int(self.year_code)
+    elif self.sem_type == 'F':
+      prev_sem = "U%2d" % int(self.year_code)
+    # If it's an unknown semester type, something is wrong.
+    else:
+      raise ValueError("Unknown semester type for '%s'" % semester)
+
+    return Semester(prev_sem)
+
+  # Return the next semester in sequence.
+  # NOTE: This will eventually wrap due to coercion of two-digit years.
+  def next(self):
+    if self.sem_type == 'S':
+      next_sem = "U%2d" % int(self.year_code)
+    elif self.sem_type == 'U':
+      next_sem = "F%2d" % int(self.year_code)
+    elif self.sem_type == 'F':
+      next_sem = "S%2d" % ( int(self.year_code) + 1 % 100 )
+    # If it's an unknown semester type, something is wrong.
+    else:
+      raise ValueError("Unknown semester type for '%s'" % semester)
+
+    return Semester(next_sem)
+
   def __str__(self):
     return self.semester
 
