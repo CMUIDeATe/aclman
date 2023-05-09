@@ -41,7 +41,7 @@ args = cli.parse()
 config = parse_namespace(**yaml.safe_load(args.configfile))
 secrets = parse_namespace(**yaml.safe_load(args.secretsfile))
 
-script_begin_time = datetime.datetime.now()
+script_begin_time = helpers.now()
 run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
 if config.environment == "PRODUCTION":
   live = True
@@ -395,9 +395,12 @@ jsondata_path = jsondata_dir + '/' + jsondata_file
 pathlib.Path(jsondata_dir).mkdir(parents=True, exist_ok=True)
 logger.info("Generating JSON file to locally cache calculated data at `%s`...." % jsondata_path)
 
-all_data = {}
+all_data = {
+  'timestamp': helpers.format_datetime(script_begin_time),
+  'users': {}
+}
 for student in S3.students:
-  all_data[student] = {
+  all_data['users'][student] = {
     'academic': S3.students[student].data['academic'],
     'biographical': S3.students[student].data['biographical'],
     'privileges': coalesced_student_privileges[student],
@@ -421,7 +424,7 @@ keycard_path = keycard_dir + '/' + keycard_file
 pathlib.Path(keycard_dir).mkdir(parents=True, exist_ok=True)
 
 logger.info("Generating XML file for CSGold door/keycard ACLs at `%s`...." % keycard_path)
-keycard_data = CsGoldData(comment='Generated as \'%s\' by ACLMAN at %s' % (keycard_file, datetime.datetime.now()))
+keycard_data = CsGoldData(comment='Generated as \'%s\' by ACLMAN at %s' % (keycard_file, helpers.now()))
 
 # Generate the elements for each access privilege.
 for andrewId in sorted(coalesced_student_privileges.keys()):
@@ -893,7 +896,7 @@ subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
 
 
 # Epilogue.
-script_end_time = datetime.datetime.now()
+script_end_time = helpers.now()
 logger.info("Done with %s run." % config.environment)
 script_elapsed = (script_end_time - script_begin_time).total_seconds()
 logger.info("  Finished: %s" % script_end_time)
