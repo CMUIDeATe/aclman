@@ -396,7 +396,7 @@ pathlib.Path(jsondata_dir).mkdir(parents=True, exist_ok=True)
 logger.info("Generating JSON file to locally cache calculated data at `%s`...." % jsondata_path)
 
 all_data = {
-  'timestamp': helpers.format_datetime(script_begin_time),
+  'timestamp': script_begin_time.isoformat(),
   'users': {}
 }
 for student in S3.students:

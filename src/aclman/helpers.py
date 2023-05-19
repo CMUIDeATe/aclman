@@ -9,8 +9,6 @@ from json import JSONEncoder
 from aclman.models import *
 
 
-def format_datetime(dt):
-  return dt.strftime("%Y-%m-%dT%H:%M:%S%z")
 def now():
   return datetime.datetime.now(datetime.timezone.utc).astimezone()
 
