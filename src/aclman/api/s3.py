@@ -1,3 +1,4 @@
+import functools
 import sys
 import urllib.request
 import urllib.parse
@@ -79,9 +80,10 @@ def get_student_from_bioid(bioId):
   students[andrewId].set_bioId(bioId)
   return students[andrewId]
 
+@functools.cache
 def __translate_bioid_to_andrewid(bioId):
-  # NOTE: This could also be memoized.
   global secrets, opener
+
   endpoint = "%s/student/bio/%s?idType=BIO" % (secrets['hostname'], bioId)
   bio_response = opener.open(endpoint).read()
   try:
