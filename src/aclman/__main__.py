@@ -436,7 +436,8 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     continue
 
   for privilege in coalesced_student_privileges[andrewId]:
-    # NOTE: This process will even add old, expired privileges to the file;
+    # NOTE: For most access (apart from summer access handled specially below),
+    # this process will even add old, expired privileges to the file;
     # as long as a student remains enrolled, their old entries will be added.
     # When they're re-uploaded, such records will live in the patron group for
     # a few hours afterwards before being deleted as expired by the CSGold
@@ -449,15 +450,24 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     # calculate diffs.  This would also have the added benefit that we could
     # avoid re-uploading ANY privilege which hasn't changed.
 
-    standard_door_provisioning = ["HL A4", "HL A5B", "HL A10", "HL A10A", "HL A31",
-      "HL A5 summer", "HL A10 summer", "HL A10A summer"]
     # NOTE: Beginning Fall 2021, door access to HL A5 is provisioned as part of
-    # the "base" privilege; it is no longer provisioned as a standard classroom.
+    # the "base" privilege; it is no longer provisioned as a standard
+    # classroom, except during the summer.
+    standard_door_provisioning = ["HL A4", "HL A5B", "HL A10", "HL A10A", "HL A31"]
+    summer_door_provisioning = ["HL A4 summer", "HL A5 summer",
+      "HL A10 summer", "HL A10A summer", "HL A31 summer"]
+    all_door_provisioning = standard_door_provisioning + summer_door_provisioning
+
     if privilege.key == "base":
       groupId = config.csgold_group_mapping["base"]
-    elif privilege.key == "door_access" and privilege.value in standard_door_provisioning:
+      summer_access = False
+    elif privilege.key == "door_access" and privilege.value in all_door_provisioning:
       # Door access to standard classrooms and laser cutter access.
       groupId = config.csgold_group_mapping[privilege.value]
+      if privilege.value in standard_door_provisioning:
+        summer_access = False
+      elif privilege.value in summer_door_provisioning:
+        summer_access = True
     else:
       # This privilege does not confer any door access.
       continue
@@ -466,8 +476,10 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     end_date = str(privilege.end)
     comment = "ACLMAN-%s: %s" % (run_date, ','.join([str(x) for x in privilege.sections]))
 
-    # Append the access assignment.
-    keycard_data.append_access_assignment(andrewId, groupId, start_date, end_date, comment)
+    # Append the access assignment, but only provision to summer groups if the
+    # privilege is current or future (i.e., not expired).
+    if privilege.end >= datetime.datetime.now() or not summer_access:
+      keycard_data.append_access_assignment(andrewId, groupId, start_date, end_date, comment)
 
 # Write out the file.
 with open(keycard_path, 'w') as xmlfile:
