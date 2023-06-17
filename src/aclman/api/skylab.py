@@ -5,18 +5,21 @@ import urllib.parse
 import json
 
 from aclman.models import *
+from .. import config_handler
 import aclman.api.s3 as S3
 
-secrets = {}
+secrets = None
 
-def set_secrets(s):
+def load_secrets():
   global secrets
-  secrets = s
+  secrets = config_handler.get_secrets('skylab_api')
   secrets['hostname'] = "https://skylabapi.zombiesoft.net"
 
 
 def get_users():
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   # Use the `approver` and `backend` filters to only get regular users without
   # administrative permissions.  Use the `enabled` and `deleted` filters to
   # only get those remaining who have active accounts on Skylab.
@@ -30,7 +33,9 @@ def get_users():
   return __search_users(search_parameters)
 
 def get_user_data(andrewId):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   parameters = {
     'eppn': "%s@andrew.cmu.edu" % andrewId
   }
@@ -48,9 +53,11 @@ def get_user_data(andrewId):
     raise Exception("Skylab error %s: %s\n%s" % (error['errorCode'], error['errorMsg'], error['errorDetails']))
 
 def add_user(andrewId):
+  if secrets is None:
+    load_secrets()
+
   # This endpoint will prefer to enable a previously disabled user, if one exists.
   # Otherwise, it newly creates the user.
-  global secrets
   endpoint = "%s/api/entities/academics-create-or-update" % (secrets['hostname'])
   student = S3.get_student_from_andrewid(andrewId)
   params = {
@@ -72,8 +79,10 @@ def add_user(andrewId):
     raise Exception("Skylab error %s: %s\n%s" % (error['errorCode'], error['errorMsg'], error['errorDetails']))
 
 def enable_user(andrewId):
+  if secrets is None:
+    load_secrets()
+
   # This endpoint only operates on previously disabled users.
-  global secrets
   endpoint = "%s/api/entities/academics-enable" % (secrets['hostname'])
   params = {
     'eppn': "%s@andrew.cmu.edu" % andrewId
@@ -91,7 +100,9 @@ def enable_user(andrewId):
     raise Exception("Skylab error %s: %s\n%s" % (error['errorCode'], error['errorMsg'], error['errorDetails']))
 
 def disable_user(andrewId):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   endpoint = "%s/api/entities/academics-disable" % (secrets['hostname'])
   params = {
     'eppn': "%s@andrew.cmu.edu" % andrewId
@@ -110,7 +121,9 @@ def disable_user(andrewId):
 
 
 def __search_users(search_parameters):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   num_remaining = __count_users(search_parameters)
   page_size = 100
   page_num = 0
@@ -140,7 +153,9 @@ def __search_users(search_parameters):
   return users
 
 def __count_users(search_parameters):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   parameters = search_parameters
   endpoint = "%s/api/entities/academics-count?%s" % (secrets['hostname'], urllib.parse.urlencode(parameters))
   headers = {

@@ -5,9 +5,10 @@ import urllib.parse
 import json
 
 from aclman.models import *
+from .. import config_handler
 import aclman.helpers as helpers
 
-secrets = {}
+secrets = None
 
 students = {}
 student_sections = {}
@@ -15,9 +16,9 @@ student_sections = {}
 business_semester = helpers.business_semester()
 opener = urllib.request.build_opener(urllib.request.BaseHandler()) # default opener
 
-def set_secrets(s):
+def load_secrets():
   global secrets, opener
-  secrets = s
+  secrets = config_handler.get_secrets('s3_api')
 
   passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
   passman.add_password(None, secrets['hostname'], secrets['username'], secrets['password'])
@@ -27,7 +28,9 @@ def set_secrets(s):
 
 
 def get_crosslists(section):
-  global secrets, opener
+  if secrets is None:
+    load_secrets()
+
   endpoint = "%s/course/courses/%s" % (secrets['hostname'], str(section))
   try:
     resp = opener.open(endpoint).read()
@@ -39,7 +42,9 @@ def get_crosslists(section):
   return [ Section(crosslist['semesterCode'], crosslist['courseNumber'], crosslist['section']) for crosslist in section_crosslists ]
 
 def get_roster_bioUrls(section):
-  global secrets, opener
+  if secrets is None:
+    load_secrets()
+
   parameters = {
     'semester': section.semester,
     'courseNumber': section.course,
@@ -62,7 +67,9 @@ def is_billable(andrewId):
   return billable
 
 def get_student_from_andrewid(andrewId):
-  global students
+  if secrets is None:
+    load_secrets()
+
   # Return memoized copy, if available.
   if andrewId in students:
     return students[andrewId]
@@ -73,7 +80,9 @@ def get_student_from_andrewid(andrewId):
   return students[andrewId]
 
 def get_student_from_bioid(bioId):
-  global students
+  if secrets is None:
+    load_secrets()
+
   andrewId = __translate_bioid_to_andrewid(bioId)
   get_student_from_andrewid(andrewId)
   # Fill in the missing `bioID` value, since it is known.
@@ -82,7 +91,8 @@ def get_student_from_bioid(bioId):
 
 @functools.cache
 def __translate_bioid_to_andrewid(bioId):
-  global secrets, opener
+  if secrets is None:
+    load_secrets()
 
   endpoint = "%s/student/bio/%s?idType=BIO" % (secrets['hostname'], bioId)
   bio_response = opener.open(endpoint).read()
@@ -94,7 +104,10 @@ def __translate_bioid_to_andrewid(bioId):
   return bio_data['andrewId']
 
 def __fetch_student_data_from_andrewid(andrewId):
-  global secrets, opener, students, business_semester
+  global students
+  if secrets is None:
+    load_secrets()
+
   data = {}
 
   # Get biographical data for the student.

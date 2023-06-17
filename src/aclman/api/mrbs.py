@@ -3,26 +3,33 @@ import subprocess
 import re
 
 from aclman.models import *
+from .. import config_handler
 import aclman.api.s3 as S3
 
-secrets = {}
+secrets = None
 
-def set_secrets(s):
+def load_secrets():
   global secrets
-  secrets = s
+  secrets = config_handler.get_secrets('mrbs_db')
   secrets['domain'] = 'andrew.cmu.edu'
 
 def execute(stmt):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   return subprocess.check_output(["mysql", "-h", secrets['hostname'], "-s", "-N", "-u", secrets['username'], "-p%s" % secrets['password'], "-e", stmt]).decode('utf-8')
 
 def get_members(roomId):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   rows = execute("SELECT user_name FROM mrbs.mrbs_permissions WHERE room_id = \'%d\';" % roomId)
   return { re.sub('@%s$' % secrets['domain'], '', x) for x in rows.splitlines() }
 
 def add_member(roomId, member):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   # First, determine if the user is in the MRBS database at all.
   eppn = "%s@%s" % (member, secrets['domain'])
   count = int( execute("SELECT count(id) FROM mrbs.mrbs_users WHERE user_login = \"%s\";" % eppn) )
@@ -36,6 +43,8 @@ def add_member(roomId, member):
   execute("INSERT INTO mrbs.mrbs_permissions (user_name, room_id) VALUES (\"%s\", \"%d\");" % (eppn, roomId))
 
 def remove_member(roomId, member):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   eppn = "%s@%s" % (member, secrets['domain'])
   execute("DELETE FROM mrbs.mrbs_permissions WHERE user_name = \"%s\" AND room_id = \"%d\";" % (eppn, roomId))

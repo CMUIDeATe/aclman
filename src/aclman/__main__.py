@@ -4,7 +4,7 @@ import datetime
 import logging
 import os, sys
 import subprocess
-import csv, json, yaml
+import csv, json
 import re
 
 import socket
@@ -18,13 +18,14 @@ from aclman.models import *
 import aclman.helpers as helpers
 
 from aclman.cli import CliParser
-from argparse import Namespace as parse_namespace
 
 import aclman.api.s3 as S3
 import aclman.api.grouper as Grouper
 import aclman.api.mrbs as Mrbs
 import aclman.api.skylab as Skylab
 import aclman.api.zoho as Zoho
+
+from . import config_handler
 
 
 def andrewid_str(andrewId):
@@ -34,16 +35,22 @@ def andrewid_str(andrewId):
 # Prologue.
 cli = CliParser('ACLMAN')
 cli.option('-s', '--sectionfile', dest='sectionfile', metavar='FILE', action='store', default=None, help="specify a path to a CSV section file defining privileges")
-cli.file_read_option('-c', '--configfile', dest='configfile', metavar='FILE', action='store', default="config/config.yaml", help="specify a path to a YAML file defining configuration")
-cli.file_read_option('-S', '--secretsfile', dest='secretsfile', metavar='FILE', action='store', default="config/secrets.yaml", help="specify a path to a YAML file defining connection/authentication secrets")
+cli.option('-c', '--configfile', dest='configfile', metavar='FILE', action='store', default="config/config.yaml", help="specify a path to a YAML file defining configuration")
+cli.option('-S', '--secretsfile', dest='secretsfile', metavar='FILE', action='store', default="config/secrets.yaml", help="specify a path to a YAML file defining connection/authentication secrets")
 args = cli.parse()
 
-config = parse_namespace(**yaml.safe_load(args.configfile))
-secrets = parse_namespace(**yaml.safe_load(args.secretsfile))
+config_handler.set_config_path(args.configfile)
+config_handler.set_secrets_path(args.secretsfile)
+
+config = config_handler.get_config()
+secrets = config_handler.get_secrets()
+# NOTE: Although each API loads its secrets once it's used, Zoho auth tokens
+# are only valid for an hour, so we separately call Zoho.authenticate() closer
+# to when it's needed.
 
 script_begin_time = helpers.now()
 run_date = script_begin_time.strftime("%Y-%m-%d-%H%M%S")
-if config.environment == "PRODUCTION":
+if config['environment'] == "PRODUCTION":
   live = True
 else:
   live = False
@@ -59,15 +66,6 @@ else:
 # Install a default instrumented URL opener.
 instrumented_opener = urllib.request.build_opener(helpers.CustomHTTPErrorHandler)
 urllib.request.install_opener(instrumented_opener)
-
-# Establish auth to each API.
-S3.set_secrets(secrets.s3_api)
-Grouper.set_secrets(secrets.grouper_api)
-Mrbs.set_secrets(secrets.mrbs_db)
-Skylab.set_secrets(secrets.skylab_api)
-Zoho.set_secrets(secrets.zoho_api)
-# NOTE: Zoho auth tokens are only valid for an hour, so we separately call
-# Zoho.authenticate() closer to when it's needed.
 
 # Configure logging.
 log_dir = "log"
@@ -95,19 +93,25 @@ pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 logger.info("ACLMAN script started: %s" % script_begin_time)
 logger.info("ACLMAN verison is: %s" % importlib.metadata.version('aclman'))
 logger.info("Local host is: %s" % socket.getfqdn())
-logger.info("Environment is: %s" % config.environment)
+logger.info("Environment is: %s" % config['environment'])
 
 
 
-default_sectionfile = "sections.csv"
+default_section_package = "data"
+default_section_file = "sections.csv"
 
 # Read in and process the list of sections from the section file.
+# TODO: Since the section file is essentially config, read it in using the
+# config handler.
 if args.sectionfile is None:
   logger.info("Processing default list of sections from built-in section file....")
-  s = importlib.resources.open_text("data", default_sectionfile)
+  s = importlib.resources.open_text(default_section_package, default_section_file)
 else:
   logger.info("Processing requested list of sections from section file `%s`...." % args.sectionfile)
-  s = open(args.sectionfile, "r")
+  section_file_path = pathlib.Path(pathlib.Path.cwd(), args.sectionfile).resolve()
+  if not section_file_path.is_file():
+    raise FileNotFoundError("No section file found at '%s'" % section_file_path)
+  s = open(section_file_path, "r")
 sreader = csv.reader(s)
 
 all_sections = []
@@ -135,10 +139,13 @@ s.close()
 # section file.
 if args.sectionfile is None:
   logger.info("Processing associated privileges for %d sections from built-in section file...." % len(all_sections))
-  s = importlib.resources.open_text("data", default_sectionfile)
+  s = importlib.resources.open_text(default_section_package, default_section_file)
 else:
   logger.info("Processing associated privileges for %d sections from requested section file `%s`...." % (len(all_sections), args.sectionfile))
-  s = open(args.sectionfile, "r")
+  section_file_path = pathlib.Path(pathlib.Path.cwd(), args.sectionfile).resolve()
+  if not section_file_path.is_file():
+    raise FileNotFoundError("No section file found at '%s'" % section_file_path)
+  s = open(section_file_path, "r")
 sreader = csv.reader(s)
 
 all_privilege_types = []
@@ -296,7 +303,7 @@ group_access_defs = [
 ]
 
 for group_access_def in group_access_defs:
-  access_group = config.grouper_groups[group_access_def['grouper_group']]
+  access_group = config['grouper_groups'][group_access_def['grouper_group']]
   logger.info("Getting existing group memberships for `%s`...." % access_group)
   group_andrewIds = Grouper.get_members(access_group)
 
@@ -459,11 +466,11 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
     all_door_provisioning = standard_door_provisioning + summer_door_provisioning
 
     if privilege.key == "base":
-      groupId = config.csgold_group_mapping["base"]
+      groupId = config['csgold_group_mapping']['base']
       summer_access = False
     elif privilege.key == "door_access" and privilege.value in all_door_provisioning:
       # Door access to standard classrooms and laser cutter access.
-      groupId = config.csgold_group_mapping[privilege.value]
+      groupId = config['csgold_group_mapping'][privilege.value]
       if privilege.value in standard_door_provisioning:
         summer_access = False
       elif privilege.value in summer_door_provisioning:
@@ -487,13 +494,13 @@ with open(keycard_path, 'w') as xmlfile:
 subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
 
 # Upload the file via SFTP to the CSGold Util server.
-logger.info("Uploading XML file for door/keycard ACLs to CSGold Util %s server...." % config.environment)
+logger.info("Uploading XML file for door/keycard ACLs to CSGold Util %s server...." % config['environment'])
 
 # Read SFTP commands from stdin with "-b -", given in the input argument.
 # Suppress verbose SFTP output with the `stdout=subprocess.DEVNULL` option.
 # Errors will still be piped to stderr.
-result = subprocess.run(["sftp", "-b", "-", "-i", secrets.csgold_util['ssh_key_path'],
-  "%s@%s" % (secrets.csgold_util['username'], secrets.csgold_util['fqdn'])],
+result = subprocess.run(["sftp", "-b", "-", "-i", secrets['csgold_util']['ssh_key_path'],
+  "%s@%s" % (secrets['csgold_util']['username'], secrets['csgold_util']['fqdn'])],
   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
   input=b"put %s Drop/" % keycard_path.encode('utf-8'))
 if result.returncode != 0:
@@ -513,7 +520,7 @@ if result.returncode != 0:
 #          routinely purged from Grouper and, for performance reasons there, we
 #          aren't permitted to add them back (nor should we want to).  We
 #          accomplish this with the calculated `billable` flag.
-base_privileges_group = config.grouper_groups['base_community_privileges']
+base_privileges_group = config['grouper_groups']['base_community_privileges']
 
 # Get the existing group members.
 logger.info("Getting existing group memberships for `%s`...." % base_privileges_group)
@@ -566,7 +573,7 @@ for privilege_type in all_privilege_types:
     continue
   else:
     mrbs_roomNumber = privilege_type.value
-    mrbs_roomId = config.mrbs_room_mapping[mrbs_roomNumber]
+    mrbs_roomId = config['mrbs_room_mapping'][mrbs_roomNumber]
 
     # Get the existing group members.
     logger.info("Getting existing MRBS ACLs for %s (room ID %d)...." % (mrbs_roomNumber, mrbs_roomId))
@@ -597,7 +604,7 @@ for privilege_type in all_privilege_types:
       # Since there is presently no development environment for MRBS, take no
       # action in DEVELOPMENT mode; rather, simply output the calculated
       # differences.
-      logger.info("Environment is %s; NOT adding/removing MRBS users." % config.environment)
+      logger.info("Environment is %s; NOT adding/removing MRBS users." % config['environment'])
       logger.debug("%d members should be removed from MRBS ACL for %s (room ID %d)...." % (len(mrbs_to_del), mrbs_roomNumber, mrbs_roomId))
       for andrewId in sorted(mrbs_to_del):
         logger.debug("  %s", andrewid_str(andrewId))
@@ -762,7 +769,7 @@ if not live:
   # Since there is presently no development environment for Zoho, take no
   # action in DEVELOPMENT mode; rather, simply output the calculated
   # differences.
-  logger.info("Environment is %s; NOT adding/removing Zoho users." % config.environment)
+  logger.info("Environment is %s; NOT adding/removing Zoho users." % config['environment'])
   logger.debug("%d members should be deactivated in Zoho user list...." % len(zoho_to_deactivate))
   for andrewId in sorted(zoho_to_deactivate):
     logger.debug("  %s", andrewid_str(andrewId))
@@ -819,9 +826,9 @@ for user in skylab_user_data:
 
 calculated_andrewIds = set()
 # Start by getting the overriding ACLs for instructor and supplemental access.
-groups = [ config.grouper_groups['skylab_instructor_access'],
-           config.grouper_groups['skylab_supplemental_access'],
-           config.grouper_groups['skylab_tech_advisor_access']
+groups = [ config['grouper_groups']['skylab_instructor_access'],
+           config['grouper_groups']['skylab_supplemental_access'],
+           config['grouper_groups']['skylab_tech_advisor_access']
          ]
 for group in groups:
   logger.info("Getting override ACL group memberships for `%s`...." % group)
@@ -845,7 +852,7 @@ if not live:
   # Since there is presently no development environment for Skylab, take no
   # action in DEVELOPMENT mode; rather, simply output the calculated
   # differences.
-  logger.info("Environment is %s; NOT adding/removing Skylab users." % config.environment)
+  logger.info("Environment is %s; NOT adding/removing Skylab users." % config['environment'])
   logger.debug("%d members should be disabled in Skylab user list...." % len(skylab_to_disable))
   for andrewId in sorted(skylab_to_disable):
     logger.debug("  %s", andrewid_str(andrewId))
@@ -909,7 +916,7 @@ subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
 
 # Epilogue.
 script_end_time = helpers.now()
-logger.info("Done with %s run." % config.environment)
+logger.info("Done with %s run." % config['environment'])
 script_elapsed = (script_end_time - script_begin_time).total_seconds()
 logger.info("  Finished: %s" % script_end_time)
 logger.info("   Started: %s" % script_begin_time)

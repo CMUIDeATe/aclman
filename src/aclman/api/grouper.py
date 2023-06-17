@@ -3,11 +3,13 @@ import urllib.request
 import base64
 import json
 
-secrets = {}
+from .. import config_handler
 
-def set_secrets(s):
+secrets = None
+
+def load_secrets():
   global secrets
-  secrets = s
+  secrets = config_handler.get_secrets('grouper_api')
 
   auth_cred = ('%s:%s' % (secrets['username'], secrets['password']))
   auth_str = base64.encodebytes(auth_cred.encode('ascii'))[:-1].decode('utf-8')
@@ -16,7 +18,9 @@ def set_secrets(s):
 
 
 def get_members(groupId):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   endpoint = "%s/grouper-ws/servicesRest/json/v2_2_001/groups/%s/members" % (secrets['hostname'], urllib.parse.quote_plus(groupId))
   req = urllib.request.Request(endpoint, None, secrets['auth_header'], method='GET')
   try:
@@ -36,7 +40,9 @@ def get_members(groupId):
     return set()
 
 def add_member(groupId, member):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   endpoint = "%s/grouper-ws/servicesRest/json/v2_2_001/groups/%s/members/%s" % (secrets['hostname'], urllib.parse.quote_plus(groupId), member)
   req = urllib.request.Request(endpoint, None, secrets['auth_header'], method='PUT')
   try:
@@ -45,7 +51,9 @@ def add_member(groupId, member):
     raise e
 
 def remove_member(groupId, member):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   endpoint = "%s/grouper-ws/servicesRest/json/v2_2_001/groups/%s/members/%s" % (secrets['hostname'], urllib.parse.quote_plus(groupId), member)
   req = urllib.request.Request(endpoint, None, secrets['auth_header'], method='DELETE')
   try:

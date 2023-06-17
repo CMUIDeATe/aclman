@@ -5,13 +5,15 @@ import urllib.parse
 import json
 
 from aclman.models import *
+from .. import config_handler
 import aclman.api.s3 as S3
 
-secrets = {}
+secrets = None
 
-def set_secrets(s):
+def load_secrets():
   global secrets
-  secrets = s
+  secrets = config_handler.get_secrets('zoho_api')
+
   secrets['hostname'] = "https://creator.zoho.com"
   secrets['oauth_host'] = "https://accounts.zoho.com"
 
@@ -19,6 +21,9 @@ def set_secrets(s):
   secrets['user_view'] = "All_Users"
 
 def authenticate():
+  if secrets is None:
+    load_secrets()
+
   # Use the (permanent) refresh token to get a (temporary) access token for
   # this run; it will be valid for one hour.
   # https://www.zoho.com/creator/help/api/v2/refresh-the-access-token.html
@@ -36,7 +41,9 @@ def authenticate():
 
 
 def get_users():
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   user_data = []
   start_num = 0
   page_size = 200
@@ -65,7 +72,9 @@ def get_users():
   return user_data
 
 def get_user_data(andrewId):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   get_params = {
     'criteria': 'user_aid == "%s"' % andrewId
   }
@@ -84,7 +93,9 @@ def get_user_data(andrewId):
     raise e
 
 def add_user(andrewId):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   endpoint = "%s/api/v2/%s/%s/form/%s" % (secrets['hostname'], secrets['owner'], secrets['application'], secrets['user_form'])
   student = S3.get_student_from_andrewid(andrewId)
   params = { 'data': {
@@ -112,7 +123,9 @@ def add_user(andrewId):
     raise e
 
 def activate_user(andrewId):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   try:
     user_data = get_user_data(andrewId)
   except:
@@ -142,7 +155,9 @@ def activate_user(andrewId):
     raise e
 
 def deactivate_user(andrewId):
-  global secrets
+  if secrets is None:
+    load_secrets()
+
   try:
     user_data = get_user_data(andrewId)
   except:

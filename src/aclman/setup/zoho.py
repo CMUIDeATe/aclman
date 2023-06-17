@@ -1,18 +1,17 @@
 import sys
 import datetime
-import json, yaml
+import json
 import urllib.request
 import urllib.parse
 
-from argparse import Namespace as parse_namespace
+from .. import config_handler
 
 import aclman.helpers as helpers
 instrumented_opener = urllib.request.build_opener(helpers.CustomHTTPErrorHandler)
 urllib.request.install_opener(instrumented_opener)
 
 import aclman.api.zoho as Zoho
-with open("config/secrets.yaml", 'r') as f:
-  secrets = parse_namespace(**yaml.safe_load(f)).zoho_api
+secrets = config_handler.get_secrets('zoho_api')
 
 # Zoho Creator API v2 documentation
 # https://www.zoho.com/creator/help/api/v2/
