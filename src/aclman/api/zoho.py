@@ -4,9 +4,9 @@ import urllib.request
 import urllib.parse
 import json
 
-from aclman.models import *
+from ..models import *
 from .. import config_handler
-import aclman.api.s3 as S3
+from . import s3 as S3
 
 secrets = None
 

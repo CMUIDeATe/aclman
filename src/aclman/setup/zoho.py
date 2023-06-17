@@ -5,12 +5,12 @@ import urllib.request
 import urllib.parse
 
 from .. import config_handler
+from .. import helpers
+from ..api import zoho as Zoho
 
-import aclman.helpers as helpers
 instrumented_opener = urllib.request.build_opener(helpers.CustomHTTPErrorHandler)
 urllib.request.install_opener(instrumented_opener)
 
-import aclman.api.zoho as Zoho
 secrets = config_handler.get_secrets('zoho_api')
 
 # Zoho Creator API v2 documentation

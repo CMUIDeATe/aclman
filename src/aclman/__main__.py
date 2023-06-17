@@ -14,16 +14,16 @@ import importlib.resources
 import importlib.metadata
 import pathlib
 
-from aclman.models import *
-import aclman.helpers as helpers
+from .models import *
+from . import helpers
 
-from aclman.cli import CliParser
+from .cli import CliParser
 
-import aclman.api.s3 as S3
-import aclman.api.grouper as Grouper
-import aclman.api.mrbs as Mrbs
-import aclman.api.skylab as Skylab
-import aclman.api.zoho as Zoho
+from .api import s3 as S3
+from .api import grouper as Grouper
+from .api import mrbs as Mrbs
+from .api import skylab as Skylab
+from .api import zoho as Zoho
 
 from . import config_handler
 

@@ -7,7 +7,7 @@ import urllib.error
 import json
 from json import JSONEncoder
 
-from aclman.models import *
+from .models import *
 
 
 def now():

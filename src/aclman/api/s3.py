@@ -4,9 +4,9 @@ import urllib.request
 import urllib.parse
 import json
 
-from aclman.models import *
+from ..models import *
 from .. import config_handler
-import aclman.helpers as helpers
+from .. import helpers
 
 secrets = None
 
