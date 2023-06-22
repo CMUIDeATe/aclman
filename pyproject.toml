@@ -4,14 +4,14 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'aclman'
-version = '0.3.0'
+version = '0.4.0'
 description = "ACL manager middleware for IDeATe at Carnegie Mellon University"
 readme = "README.md"
 authors = [
   { name = 'Tim Parenti', email = 'tparenti@andrew.cmu.edu' }
 ]
 requires-python = '>=3.8'
-dependencies = ['pyyaml']
+dependencies = ['pyjwt[crypto]', 'pyyaml']
 
 [project.urls]
 repository = "https://github.com/CMUIDeATe/aclman"

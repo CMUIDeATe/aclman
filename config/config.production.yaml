@@ -10,6 +10,22 @@ output_dirs:
   keycard: 'output/keycard'
   rosters: 'output/rosters'
 
+# BioRAFT training courses
+# Marks primary courses and includes known titles of deprecated courses.
+bioraft_training_courses:
+  284572:
+    title: 'Fire Extinguisher Training'
+    primary: True
+  2008052:
+    title: 'Laser Cutter Safety'
+    primary: True
+  284587:
+    title: 'Hazard Communication'
+  1275963:
+    title: 'Fire Extinguisher Use, Part 1'
+  2051628:
+    title: 'Pandemic Safety Officer Training and Awareness'
+
 # CSGold group mapping
 # Maps a `door_access` privilege value (room number) to a CSGold patron group number.
 csgold_group_mapping:
