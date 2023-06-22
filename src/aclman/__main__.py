@@ -68,14 +68,15 @@ instrumented_opener = urllib.request.build_opener(helpers.CustomHTTPErrorHandler
 urllib.request.install_opener(instrumented_opener)
 
 # Configure logging.
-log_dir = "log"
+log_dir = pathlib.Path(config['log_dir']).resolve()
+log_dir.mkdir(parents=True, exist_ok=True)
 log_file = "%s.log" % run_date
-pathlib.Path(log_dir).mkdir(parents=True, exist_ok=True)
+log_path = pathlib.Path(log_dir, log_file).resolve()
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 # Set up file-based DEBUG logger.
-file_log_handler = logging.FileHandler(log_dir + '/' + log_file)
+file_log_handler = logging.FileHandler(log_path)
 file_log_handler.setFormatter(logging.Formatter('%(asctime)s.%(msecs)03d:%(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
 file_log_handler.setLevel(logging.DEBUG)
 logger.addHandler(file_log_handler)
@@ -86,10 +87,9 @@ if not live:
   console_log_handler.setLevel(logging.INFO)
   logger.addHandler(console_log_handler)
 
-subprocess.call(["ln", "-sf", log_file, log_dir + "/latest.log"])
+log_link = pathlib.Path(log_dir, "latest.log").resolve()
+subprocess.call(["ln", "-sf", log_file, log_link])
 
-output_dir = "output"
-pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 logger.info("ACLMAN script started: %s" % script_begin_time)
 logger.info("ACLMAN verison is: %s" % importlib.metadata.version('aclman'))
 logger.info("Local host is: %s" % socket.getfqdn())
@@ -97,18 +97,15 @@ logger.info("Environment is: %s" % config['environment'])
 
 
 
-default_section_package = "data"
-default_section_file = "sections.csv"
+default_section_file_input = config['default_inputs']['section_file']
 
 # Read in and process the list of sections from the section file.
-# TODO: Since the section file is essentially config, read it in using the
-# config handler.
 if args.sectionfile is None:
   logger.info("Processing default list of sections from built-in section file....")
-  s = importlib.resources.open_text(default_section_package, default_section_file)
+  s = importlib.resources.open_text(default_section_file_input['package'], default_section_file_input['file'])
 else:
   logger.info("Processing requested list of sections from section file `%s`...." % args.sectionfile)
-  section_file_path = pathlib.Path(pathlib.Path.cwd(), args.sectionfile).resolve()
+  section_file_path = pathlib.Path(config_handler.cwd, args.sectionfile).resolve()
   if not section_file_path.is_file():
     raise FileNotFoundError("No section file found at '%s'" % section_file_path)
   s = open(section_file_path, "r")
@@ -139,10 +136,10 @@ s.close()
 # section file.
 if args.sectionfile is None:
   logger.info("Processing associated privileges for %d sections from built-in section file...." % len(all_sections))
-  s = importlib.resources.open_text(default_section_package, default_section_file)
+  s = importlib.resources.open_text(default_section_file_input['package'], default_section_file_input['file'])
 else:
   logger.info("Processing associated privileges for %d sections from requested section file `%s`...." % (len(all_sections), args.sectionfile))
-  section_file_path = pathlib.Path(pathlib.Path.cwd(), args.sectionfile).resolve()
+  section_file_path = pathlib.Path(config_handler.cwd, args.sectionfile).resolve()
   if not section_file_path.is_file():
     raise FileNotFoundError("No section file found at '%s'" % section_file_path)
   s = open(section_file_path, "r")
@@ -396,10 +393,10 @@ del all_student_privileges
 #        - TODO: Check diffs between the current version of this data and the
 #          most recently cached version before determining what actions should
 #          be taken on any downstream systems.
-jsondata_dir = "%s/jsondata" % output_dir
+jsondata_dir = pathlib.Path(config['output_dirs']['jsondata']).resolve()
+jsondata_dir.mkdir(parents=True, exist_ok=True)
 jsondata_file = "data-%s.json" % run_date
-jsondata_path = jsondata_dir + '/' + jsondata_file
-pathlib.Path(jsondata_dir).mkdir(parents=True, exist_ok=True)
+jsondata_path = pathlib.Path(jsondata_dir, jsondata_file).resolve()
 logger.info("Generating JSON file to locally cache calculated data at `%s`...." % jsondata_path)
 
 all_data = {
@@ -417,7 +414,8 @@ for student in S3.students:
 # Write out the file.
 with open(jsondata_path, 'w') as jsonfile:
   jsonfile.write(json.dumps(all_data, sort_keys=True, indent=2, cls=helpers.CustomJSONEncoder))
-subprocess.call(["ln", "-sf", jsondata_file, jsondata_dir + "/latest.json"])
+jsondata_link = pathlib.Path(jsondata_dir, "latest.json").resolve()
+subprocess.call(["ln", "-sf", jsondata_file, jsondata_link])
 
 
 #   1. Generate XML file for door/keycard ACL management, upload via SFTP with
@@ -425,10 +423,10 @@ subprocess.call(["ln", "-sf", jsondata_file, jsondata_dir + "/latest.json"])
 #        - NOTE: Enrollment data is NOT nominaly needed here, as card expiry
 #          will override when necessary, but it will help reduce file size and
 #          group size.
-keycard_dir = "%s/keycard" % output_dir
+keycard_dir = pathlib.Path(config['output_dirs']['keycard']).resolve()
+keycard_dir.mkdir(parents=True, exist_ok=True)
 keycard_file = "keycard-%s.xml" % run_date
-keycard_path = keycard_dir + '/' + keycard_file
-pathlib.Path(keycard_dir).mkdir(parents=True, exist_ok=True)
+keycard_path = pathlib.Path(keycard_dir, keycard_file).resolve()
 
 logger.info("Generating XML file for CSGold door/keycard ACLs at `%s`...." % keycard_path)
 keycard_data = CsGoldData(comment='Generated as \'%s\' by ACLMAN at %s' % (keycard_file, helpers.now()))
@@ -491,7 +489,8 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
 # Write out the file.
 with open(keycard_path, 'w') as xmlfile:
   xmlfile.write(keycard_data.export_xml())
-subprocess.call(["ln", "-sf", keycard_file, keycard_dir + "/latest.xml"])
+keycard_link = pathlib.Path(keycard_dir, "latest.xml").resolve()
+subprocess.call(["ln", "-sf", keycard_file, keycard_link])
 
 # Upload the file via SFTP to the CSGold Util server.
 logger.info("Uploading XML file for door/keycard ACLs to CSGold Util %s server...." % config['environment'])
@@ -502,7 +501,7 @@ logger.info("Uploading XML file for door/keycard ACLs to CSGold Util %s server..
 result = subprocess.run(["sftp", "-b", "-", "-i", secrets['csgold_util']['ssh_key_path'],
   "%s@%s" % (secrets['csgold_util']['username'], secrets['csgold_util']['fqdn'])],
   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-  input=b"put %s Drop/" % keycard_path.encode('utf-8'))
+  input=b"put %s Drop/" % bytes(keycard_path))
 if result.returncode != 0:
   logger.error("SFTP error %d:\n%s" % (result.returncode, result.stderr.decode('utf-8')))
 
@@ -888,10 +887,10 @@ else:
 
 
 # As an additional intermediate output, create stripped-down CSV roster files:
-roster_dir = "%s/rosters" % output_dir
+roster_dir = pathlib.Path(config['output_dirs']['rosters']).resolve()
+roster_dir.mkdir(parents=True, exist_ok=True)
 roster_file = "rosters-%s.csv" % run_date
-roster_path = roster_dir + '/' + roster_file
-pathlib.Path(roster_dir).mkdir(parents=True, exist_ok=True)
+roster_path = pathlib.Path(roster_dir, roster_file).resolve()
 logger.info("Generating CSV roster at `%s`...." % roster_path)
 
 with open(roster_path, 'w') as csvfile:
@@ -911,7 +910,8 @@ with open(roster_path, 'w') as csvfile:
       }
       writer.writerow(row)
 
-subprocess.call(["ln", "-sf", roster_file, roster_dir + "/latest.csv"])
+roster_link = pathlib.Path(roster_dir, "latest.csv").resolve()
+subprocess.call(["ln", "-sf", roster_file, roster_link])
 
 
 # Epilogue.

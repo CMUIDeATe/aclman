@@ -1,5 +1,15 @@
 environment: 'PRODUCTION'
 
+log_dir: 'log'
+default_inputs:
+  section_file:
+    package: 'data'
+    file: 'sections.csv'
+output_dirs:
+  jsondata: 'output/jsondata'
+  keycard: 'output/keycard'
+  rosters: 'output/rosters'
+
 # CSGold group mapping
 # Maps a `door_access` privilege value (room number) to a CSGold patron group number.
 csgold_group_mapping:
