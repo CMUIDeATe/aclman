@@ -293,14 +293,14 @@ for andrewId in S3.students:
 # policies.
 group_access_defs = [
   {
-    'grouper_group': 'laser_cutter_door_access',
+    'access_group': config['grouper_groups']['access']['laser_cutter_door'],
     'privilege_type': PrivilegeType('door_access', 'HL A5B'),
     'tag': 'laser-access'
   }
 ]
 
 for group_access_def in group_access_defs:
-  access_group = config['grouper_groups'][group_access_def['grouper_group']]
+  access_group = group_access_def['access_group']
   logger.info("Getting existing group memberships for `%s`...." % access_group)
   group_andrewIds = Grouper.get_members(access_group)
 
@@ -519,7 +519,7 @@ if result.returncode != 0:
 #          routinely purged from Grouper and, for performance reasons there, we
 #          aren't permitted to add them back (nor should we want to).  We
 #          accomplish this with the calculated `billable` flag.
-base_privileges_group = config['grouper_groups']['base_community_privileges']
+base_privileges_group = config['grouper_groups']['privileges']['base_community']
 
 # Get the existing group members.
 logger.info("Getting existing group memberships for `%s`...." % base_privileges_group)
@@ -825,9 +825,9 @@ for user in skylab_user_data:
 
 calculated_andrewIds = set()
 # Start by getting the overriding ACLs for instructor and supplemental access.
-groups = [ config['grouper_groups']['skylab_instructor_access'],
-           config['grouper_groups']['skylab_supplemental_access'],
-           config['grouper_groups']['skylab_tech_advisor_access']
+groups = [ config['grouper_groups']['access']['skylab_instructor'],
+           config['grouper_groups']['access']['skylab_supplemental'],
+           config['grouper_groups']['access']['skylab_tech_advisor']
          ]
 for group in groups:
   logger.info("Getting override ACL group memberships for `%s`...." % group)
