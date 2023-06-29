@@ -33,7 +33,7 @@ def andrewid_str(andrewId):
 
 
 # Prologue.
-cli = CliParser('ACLMAN')
+cli = CliParser('ACLMAN', "python -m aclman")
 cli.option('-s', '--sectionfile', dest='sectionfile', metavar='FILE', action='store', default=None, help="specify a path to a CSV section file defining privileges")
 cli.option('-c', '--configfile', dest='configfile', metavar='FILE', action='store', default="config/config.yaml", help="specify a path to a YAML file defining configuration")
 cli.option('-S', '--secretsfile', dest='secretsfile', metavar='FILE', action='store', default="config/secrets.yaml", help="specify a path to a YAML file defining connection/authentication secrets")

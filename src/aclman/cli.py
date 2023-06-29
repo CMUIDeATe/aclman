@@ -7,8 +7,8 @@ import argparse
 class CliParser():
   parser = argparse.ArgumentParser()
 
-  def __init__(self, description):
-    self.parser = argparse.ArgumentParser(description=description)
+  def __init__(self, description, prog):
+    self.parser = argparse.ArgumentParser(description=description, prog=prog)
 
   def option(self, *args, **kwargs):
     self.parser.add_argument(*args, **kwargs)

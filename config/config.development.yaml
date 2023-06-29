@@ -54,6 +54,15 @@ grouper_groups:
     skylab_instructor: 'Apps:IDeATe:Access:Logins:Skylab:Instructor access'
     skylab_supplemental: 'Apps:IDeATe:Access:Logins:Skylab:Temporary supplemental access'
     skylab_tech_advisor: 'Apps:IDeATe:Access:Logins:Skylab:Tech Advisor access'
+  eligibility:
+    'Community role': 'Apps:IDeATe:Permissions:Laser Cutter:Eligibility:Community role'
+    'Laser Cutter Safety': 'Apps:IDeATe:Training:BioRAFT:Laser Cutter Safety'
+    'Fire Extinguisher Training': 'Apps:IDeATe:Training:BioRAFT:Fire Extinguisher Training'
+    'Equipment-specific safety training': 'Apps:IDeATe:Training:Laser Cutter:Equipment-specific safety training'
+    'Laser Cutter Login': 'Apps:IDeATe:Access:Logins:Laser Cutter'
+    'Positive override': 'Apps:IDeATe:Permissions:Laser Cutter:Overrides Positive'
+    'Negative override': 'Apps:IDeATe:Permissions:Laser Cutter:Overrides Negative'
+    'Old Fire Extinguisher Part 1': 'Apps:BioRAFT:Courses:Fire_Extinguisher_Use_Part_1'
 
 # MRBS room mapping
 # Maps a `room_reservation` privilege value (room number) to a MRBS room ID.

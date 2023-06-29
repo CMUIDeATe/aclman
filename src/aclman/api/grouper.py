@@ -60,3 +60,20 @@ def remove_member(groupId, member):
     resp = urllib.request.urlopen(req).read()
   except urllib.error.HTTPError as e:
     raise e
+
+def has_member(groupId, member):
+  if secrets is None:
+    load_secrets()
+
+  endpoint = "%s/grouper-ws/servicesRest/json/v2_2_001/groups/%s/members/%s" % (secrets['hostname'], urllib.parse.quote_plus(groupId), member)
+  req = urllib.request.Request(endpoint, None, secrets['auth_header'], method='GET')
+  try:
+    resp = urllib.request.urlopen(req).read()
+    member_data = json.loads(resp.decode('utf-8'))
+    try:
+      subject_data = member_data['WsHasMemberLiteResult']['resultMetadata']['resultCode']
+    except KeyError:
+      subject_data = ''
+    return ( subject_data == 'IS_MEMBER' )
+  except urllib.error.HTTPError as e:
+    raise e
