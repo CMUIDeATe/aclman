@@ -94,7 +94,22 @@ chmod 0640 /opt/$ENV/config/secrets.yaml
 chown aclman:aclman /opt/$ENV/config/*.yaml
 ```
 
-## Deploying to test and production
+## Deployment
+
+### Build environment
+
+If not already active, activate the build environment:
+```
+cd ~/aclman
+source .venv/bin/activate
+```
+
+Reinstall the updated package to the build environment in "editable" mode:
+```
+pip install -e .
+```
+
+### Test and production environments
 
 From the build directory and environment, build a wheel:
 ```
@@ -113,6 +128,10 @@ wheel created in the build environment's `dist` subdirectory, e.g.:
 sudo /opt/$ENV/bin/pip install ~/aclman/dist/aclman-x.y.z-py3-none-any.whl
 ```
 where `x.y.z` is the project version.
+
+Then, since the default configuration and secrets files are not built into the
+wheel, merge any necessary changes into
+`/opt/$ENV/config/{config,secrets}.yaml`.
 
 ## Initialization
 
