@@ -87,7 +87,7 @@ if not live:
   console_log_handler.setLevel(logging.INFO)
   logger.addHandler(console_log_handler)
 
-log_link = pathlib.Path(log_dir, "latest.log").resolve()
+log_link = pathlib.Path(log_dir, "latest.log").absolute()
 subprocess.call(["ln", "-sf", log_file, log_link])
 
 logger.info("ACLMAN script started: %s" % script_begin_time)
@@ -414,7 +414,7 @@ for student in S3.students:
 # Write out the file.
 with open(jsondata_path, 'w') as jsonfile:
   jsonfile.write(json.dumps(all_data, sort_keys=True, indent=2, cls=helpers.CustomJSONEncoder))
-jsondata_link = pathlib.Path(jsondata_dir, "latest.json").resolve()
+jsondata_link = pathlib.Path(jsondata_dir, "latest.json").absolute()
 subprocess.call(["ln", "-sf", jsondata_file, jsondata_link])
 
 
@@ -489,7 +489,7 @@ for andrewId in sorted(coalesced_student_privileges.keys()):
 # Write out the file.
 with open(keycard_path, 'w') as xmlfile:
   xmlfile.write(keycard_data.export_xml())
-keycard_link = pathlib.Path(keycard_dir, "latest.xml").resolve()
+keycard_link = pathlib.Path(keycard_dir, "latest.xml").absolute()
 subprocess.call(["ln", "-sf", keycard_file, keycard_link])
 
 # Upload the file via SFTP to the CSGold Util server.
@@ -910,7 +910,7 @@ with open(roster_path, 'w') as csvfile:
       }
       writer.writerow(row)
 
-roster_link = pathlib.Path(roster_dir, "latest.csv").resolve()
+roster_link = pathlib.Path(roster_dir, "latest.csv").absolute()
 subprocess.call(["ln", "-sf", roster_file, roster_link])
 
 
